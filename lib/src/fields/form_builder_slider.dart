@@ -1,13 +1,9 @@
-import 'package:flutter/material.dart';
-import 'package:flutter/rendering.dart';
-import 'package:flutter/widgets.dart';
-import 'package:flutter_form_builder/flutter_form_builder.dart';
+import 'package:material_ui/material_ui.dart';
 import 'package:intl/intl.dart';
-
-enum DisplayValues { all, current, minMax, none }
+import 'package:flutter_form_builder/flutter_form_builder.dart';
 
 /// Field for selection of a numerical value on a slider
-class FormBuilderSlider extends FormBuilderField<double> {
+class FormBuilderSlider extends FormBuilderFieldDecoration<double> {
   /// Called when the user starts selecting a new value for the slider.
   ///
   /// This callback shouldn't be used to update the slider [value] (use
@@ -21,7 +17,7 @@ class FormBuilderSlider extends FormBuilderField<double> {
   ///
   ///  * [onChangeEnd] for a callback that is called when the value change is
   ///    complete.
-  final ValueChanged<double> onChangeStart;
+  final ValueChanged<double>? onChangeStart;
 
   /// Called when the user is done selecting a new value for the slider.
   ///
@@ -32,7 +28,7 @@ class FormBuilderSlider extends FormBuilderField<double> {
   ///
   ///  * [onChangeStart] for a callback that is called when a value change
   ///    begins.
-  final ValueChanged<double> onChangeEnd;
+  final ValueChanged<double>? onChangeEnd;
 
   /// The minimum value the user can select.
   ///
@@ -53,7 +49,7 @@ class FormBuilderSlider extends FormBuilderField<double> {
   /// Typically used with [label] to show the current discrete value.
   ///
   /// If null, the slider is continuous.
-  final int divisions;
+  final int? divisions;
 
   /// A label to show above the slider when the slider is active.
   ///
@@ -73,7 +69,7 @@ class FormBuilderSlider extends FormBuilderField<double> {
   ///
   ///  * [SliderComponentShape] for how to create a custom value indicator
   ///    shape.
-  final String label;
+  final String? label;
 
   /// The color to use for the portion of the slider track that is active.
   ///
@@ -84,7 +80,7 @@ class FormBuilderSlider extends FormBuilderField<double> {
   ///
   /// Using a [SliderTheme] gives much more fine-grained control over the
   /// appearance of various components of the slider.
-  final Color activeColor;
+  final Color? activeColor;
 
   /// The color for the inactive portion of the slider track.
   ///
@@ -98,53 +94,110 @@ class FormBuilderSlider extends FormBuilderField<double> {
   /// appearance of various components of the slider.
   ///
   /// Ignored if this slider is created with [Slider.adaptive].
-  final Color inactiveColor;
+  final Color? inactiveColor;
 
   /// The cursor for a mouse pointer when it enters or is hovering over the
   /// widget.
   ///
   /// If [mouseCursor] is a [MaterialStateProperty<MouseCursor>],
-  /// [MaterialStateProperty.resolve] is used for the following [MaterialState]s:
+  /// [WidgetStateProperty.resolve] is used for the following [WidgetState]s:
   ///
-  ///  * [MaterialState.hovered].
-  ///  * [MaterialState.focused].
-  ///  * [MaterialState.disabled].
+  ///  * [WidgetState.hovered].
+  ///  * [WidgetState.focused].
+  ///  * [WidgetState.disabled].
   ///
-  /// If this property is null, [MaterialStateMouseCursor.clickable] will be used.
-  final MouseCursor mouseCursor;
+  /// If this property is null, [WidgetStateMouseCursor.clickable] will be used.
+  final MouseCursor? mouseCursor;
 
   /// The callback used to create a semantic value from a slider value.
   ///
   /// Defaults to formatting values as a percentage.
-  final SemanticFormatterCallback semanticFormatterCallback;
+  final SemanticFormatterCallback? semanticFormatterCallback;
 
   /// {@macro flutter.widgets.Focus.autofocus}
   final bool autofocus;
 
-  ///TODO: Add documentation
-  final NumberFormat numberFormat;
+  /// An alternative to displaying the text value of the slider.
+  ///
+  /// Defaults to null.
+  ///
+  /// When used [minValueWidget] will override the value for the minimum widget.
+  final Widget Function(String min)? minValueWidget;
+
+  /// An alternative to displaying the text value of the slider.
+  ///
+  /// Defaults to null.
+  ///
+  /// When used [valueWidget] will override the value for the selected value widget.
+  final Widget Function(String value)? valueWidget;
+
+  /// An alternative to displaying the text value of the slider.
+  ///
+  /// Defaults to null.
+  ///
+  /// When used [maxValueWidget] will override the value for the maximum widget.
+  final Widget Function(String max)? maxValueWidget;
+
+  /// Provides the ability to format a number in a locale-specific way.
+  ///
+  /// The format is specified as a pattern using a subset of the ICU formatting
+  /// patterns.
+  ///
+  /// - `0` A single digit
+  /// - `#` A single digit, omitted if the value is zero
+  /// - `.` Decimal separator
+  /// - `-` Minus sign
+  /// - `,` Grouping separator
+  /// - `E` Separates mantissa and expontent
+  /// - `+` - Before an exponent, to say it should be prefixed with a plus sign.
+  /// - `%` - In prefix or suffix, multiply by 100 and show as percentage
+  /// - `‰ (\u2030)` In prefix or suffix, multiply by 1000 and show as per mille
+  /// - `¤ (\u00A4)` Currency sign, replaced by currency name
+  /// - `'` Used to quote special characters
+  /// - `;` Used to separate the positive and negative patterns (if both present)
+  ///
+  /// For example,
+  ///
+  ///       var f = NumberFormat("###.0#", "en_US");
+  ///       print(f.format(12.345));
+  ///           ==> 12.34
+  ///
+  /// If the locale is not specified, it will default to the current locale. If
+  /// the format is not specified it will print in a basic format with at least
+  /// one integer digit and three fraction digits.
+  ///
+  /// There are also standard patterns available via the special constructors.
+  /// e.g.
+  ///
+  ///       var percent = NumberFormat.percentPattern("ar"); var
+  ///       eurosInUSFormat = NumberFormat.currency(locale: "en_US",
+  ///           symbol: "€");
+  ///
+  /// There are several such constructors available, though some of them are
+  /// limited. For example, at the moment, scientificPattern prints only as
+  /// equivalent to "#E0" and does not take into account significant digits.
+  final NumberFormat? numberFormat;
+
   final DisplayValues displayValues;
-  final TextStyle minTextStyle;
-  final TextStyle textStyle;
-  final TextStyle maxTextStyle;
 
   /// Creates field for selection of a numerical value on a slider
   FormBuilderSlider({
-    Key key,
-    //From Super
-    @required String name,
-    FormFieldValidator<double> validator,
-    @required double initialValue,
-    InputDecoration decoration = const InputDecoration(),
-    ValueChanged<double> onChanged,
-    ValueTransformer<double> valueTransformer,
-    bool enabled = true,
-    FormFieldSetter<double> onSaved,
-    AutovalidateMode autovalidateMode = AutovalidateMode.disabled,
-    VoidCallback onReset,
-    FocusNode focusNode,
-    @required this.min,
-    @required this.max,
+    super.key,
+    required super.name,
+    super.validator,
+    required double super.initialValue,
+    super.decoration,
+    super.onChanged,
+    super.valueTransformer,
+    super.enabled,
+    super.onSaved,
+    super.autovalidateMode = AutovalidateMode.disabled,
+    super.onReset,
+    super.focusNode,
+    super.restorationId,
+    super.errorBuilder,
+    required this.min,
+    required this.max,
     this.divisions,
     this.activeColor,
     this.inactiveColor,
@@ -154,89 +207,78 @@ class FormBuilderSlider extends FormBuilderField<double> {
     this.semanticFormatterCallback,
     this.numberFormat,
     this.displayValues = DisplayValues.all,
-    this.minTextStyle,
-    this.textStyle,
-    this.maxTextStyle,
     this.autofocus = false,
     this.mouseCursor,
+    this.maxValueWidget,
+    this.minValueWidget,
+    this.valueWidget,
   }) : super(
-          key: key,
-          initialValue: initialValue,
-          name: name,
-          validator: validator,
-          valueTransformer: valueTransformer,
-          onChanged: onChanged,
-          autovalidateMode: autovalidateMode,
-          onSaved: onSaved,
-          enabled: enabled,
-          onReset: onReset,
-          decoration: decoration,
-          focusNode: focusNode,
-          builder: (FormFieldState<double> field) {
-            final state = field as _FormBuilderSliderState;
-            final _numberFormat = numberFormat ?? NumberFormat.compact();
-            return InputDecorator(
-              decoration: state.decoration(),
-              child: Container(
-                padding: const EdgeInsets.only(top: 10.0),
-                child: Column(
-                  crossAxisAlignment: CrossAxisAlignment.start,
-                  children: [
-                    Slider(
-                      value: field.value,
-                      min: min,
-                      max: max,
-                      divisions: divisions,
-                      activeColor: activeColor,
-                      inactiveColor: inactiveColor,
-                      onChangeEnd: onChangeEnd,
-                      onChangeStart: onChangeStart,
-                      label: label,
-                      semanticFormatterCallback: semanticFormatterCallback,
-                      onChanged: state.enabled
-                          ? (value) {
-                              state.requestFocus();
-                              field.didChange(value);
-                            }
-                          : null,
-                      autofocus: autofocus,
-                      mouseCursor: mouseCursor,
-                      focusNode: state.effectiveFocusNode,
-                    ),
-                    Row(
-                      children: <Widget>[
-                        if (displayValues != DisplayValues.none &&
-                            displayValues != DisplayValues.current)
-                          Text(
-                            _numberFormat.format(min),
-                            style: minTextStyle ?? textStyle,
-                          ),
-                        const Spacer(),
-                        if (displayValues != DisplayValues.none &&
-                            displayValues != DisplayValues.minMax)
-                          Text(
-                            _numberFormat.format(field.value),
-                            style: textStyle,
-                          ),
-                        const Spacer(),
-                        if (displayValues != DisplayValues.none &&
-                            displayValues != DisplayValues.current)
-                          Text(
-                            _numberFormat.format(max),
-                            style: maxTextStyle ?? textStyle,
-                          ),
-                      ],
-                    ),
-                  ],
-                ),
-              ),
-            );
-          },
-        );
+         builder: (FormFieldState<double?> field) {
+           final state = field as _FormBuilderSliderState;
+           final effectiveNumberFormat = numberFormat ?? NumberFormat.compact();
+
+           return InputDecorator(
+             decoration: state.decoration,
+             child: Container(
+               padding: const EdgeInsets.only(top: 10.0),
+               child: Column(
+                 crossAxisAlignment: CrossAxisAlignment.start,
+                 children: [
+                   Slider(
+                     value: field.value!,
+                     min: min,
+                     max: max,
+                     divisions: divisions,
+                     activeColor: activeColor,
+                     inactiveColor: inactiveColor,
+                     onChangeEnd: onChangeEnd,
+                     onChangeStart: onChangeStart,
+                     label: label,
+                     semanticFormatterCallback: semanticFormatterCallback,
+                     onChanged: state.enabled
+                         ? (value) {
+                             field.didChange(value);
+                           }
+                         : null,
+                     autofocus: autofocus,
+                     mouseCursor: mouseCursor,
+                     focusNode: state.effectiveFocusNode,
+                   ),
+                   Row(
+                     children: <Widget>[
+                       if (displayValues != DisplayValues.none &&
+                           displayValues != DisplayValues.current)
+                         minValueWidget?.call(
+                               effectiveNumberFormat.format(min),
+                             ) ??
+                             Text(effectiveNumberFormat.format(min)),
+                       const Spacer(),
+                       if (displayValues != DisplayValues.none &&
+                           displayValues != DisplayValues.minMax)
+                         valueWidget?.call(
+                               effectiveNumberFormat.format(field.value),
+                             ) ??
+                             Text(effectiveNumberFormat.format(field.value)),
+                       const Spacer(),
+                       if (displayValues != DisplayValues.none &&
+                           displayValues != DisplayValues.current)
+                         maxValueWidget?.call(
+                               effectiveNumberFormat.format(max),
+                             ) ??
+                             Text(effectiveNumberFormat.format(max)),
+                     ],
+                   ),
+                 ],
+               ),
+             ),
+           );
+         },
+       );
 
   @override
-  _FormBuilderSliderState createState() => _FormBuilderSliderState();
+  FormBuilderFieldDecorationState<FormBuilderSlider, double> createState() =>
+      _FormBuilderSliderState();
 }
 
 class _FormBuilderSliderState
-    extends FormBuilderFieldState<FormBuilderSlider, double> {}
+    extends FormBuilderFieldDecorationState<FormBuilderSlider, double> {}

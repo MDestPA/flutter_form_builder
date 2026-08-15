@@ -1,9 +1,12 @@
-import 'package:flutter/material.dart';
-import 'package:flutter/scheduler.dart';
+import 'package:flutter/foundation.dart';
+import 'package:flutter/widgets.dart';
 import 'package:flutter_form_builder/flutter_form_builder.dart';
 
-enum OptionsOrientation { horizontal, vertical, wrap }
+enum OptionsOrientation { horizontal, vertical, wrap, auto }
+
 enum ControlAffinity { leading, trailing }
+
+typedef ValueTransformer<T> = dynamic Function(T value);
 
 /// A single form field.
 ///
@@ -30,51 +33,33 @@ class FormBuilderField<T> extends FormField<T> {
   ///     keyboardType: TextInputType.number,
   ///  ),
   /// ```
-  final ValueTransformer<T> valueTransformer;
+  final ValueTransformer<T?>? valueTransformer;
 
   /// Called when the field value is changed.
-  final ValueChanged<T> onChanged;
-
-  /// The border, labels, icons, and styles used to decorate the field.
-  final InputDecoration decoration;
-
-  /// Called when the field value is reset.
-  final VoidCallback onReset;
+  final ValueChanged<T?>? onChanged;
 
   /// {@macro flutter.widgets.Focus.focusNode}
-  final FocusNode focusNode;
-
-  //TODO: implement bool autofocus, ValueChanged<bool> onValidated
+  final FocusNode? focusNode;
 
   /// Creates a single form field.
   const FormBuilderField({
-    Key key,
-    //From Super
-    FormFieldSetter<T> onSaved,
-    T initialValue,
-    AutovalidateMode autovalidateMode = AutovalidateMode.onUserInteraction,
-    bool enabled = true,
-    FormFieldValidator<T> validator,
-    @required FormFieldBuilder<T> builder,
-    @required this.name,
+    super.key,
+    super.onSaved,
+    super.initialValue,
+    super.autovalidateMode,
+    super.enabled = true,
+    super.validator,
+    super.restorationId,
+    required super.builder,
+    super.errorBuilder,
+    super.onReset,
+    super.forceErrorText,
+    required this.name,
     this.valueTransformer,
     this.onChanged,
-    this.decoration = const InputDecoration(),
-    this.onReset,
     this.focusNode,
-  })  : assert(null != enabled),
-        super(
-          key: key,
-          onSaved: onSaved,
-          initialValue: initialValue,
-          autovalidateMode: autovalidateMode,
-          enabled: enabled,
-          builder: builder,
-          validator: validator,
-        );
+  });
 
-  /*@override
-  FormBuilderFieldState<T> createState();*/
   @override
   FormBuilderFieldState<FormBuilderField<T>, T> createState() =>
       FormBuilderFieldState<FormBuilderField<T>, T>();
@@ -82,106 +67,264 @@ class FormBuilderField<T> extends FormField<T> {
 
 class FormBuilderFieldState<F extends FormBuilderField<T>, T>
     extends FormFieldState<T> {
+  String? _customErrorText;
+  FormBuilderState? _formBuilderState;
+  bool _touched = false;
+  bool _dirty = false;
+
+  /// The focus node that is used to focus this field.
+  late FocusNode effectiveFocusNode;
+
+  /// The focus attachment for the [effectiveFocusNode].
+  FocusAttachment? focusAttachment;
+
   @override
   F get widget => super.widget as F;
 
-  FormBuilderState get formState => _formBuilderState;
+  /// Returns the parent [FormBuilderState] if it exists.
+  FormBuilderState? get formState => _formBuilderState;
 
   /// Returns the initial value, which may be declared at the field, or by the
   /// parent [FormBuilder.initialValue]. When declared at both levels, the field
   /// initialValue prevails.
-  T get initialValue =>
+  T? get initialValue =>
       widget.initialValue ??
       (_formBuilderState?.initialValue ??
-          const <String, dynamic>{})[widget.name] as T;
+              const <String, dynamic>{})[widget.name]
+          as T?;
 
-  FormBuilderState _formBuilderState;
+  dynamic get transformedValue =>
+      widget.valueTransformer == null ? value : widget.valueTransformer!(value);
 
   @override
-  bool get hasError => super.hasError || widget.decoration?.errorText != null;
+  /// Returns the current error text,
+  /// which may be a validation error or a custom error text.
+  String? get errorText => super.errorText ?? _customErrorText;
 
   @override
-  bool get isValid => super.isValid && widget.decoration?.errorText == null;
+  /// Returns `true` if the field has an error or has a custom error text.
+  bool get hasError => super.hasError || errorText != null;
 
-  bool _touched = false;
+  @override
+  /// Returns `true` if the field is valid and has no custom error text.
+  bool get isValid => super.isValid && _customErrorText == null;
 
+  /// Returns `true` if the field is valid.
+  bool get valueIsValid => super.isValid;
+
+  /// Returns `true` if the field has an error.
+  bool get valueHasError => super.hasError;
+
+  /// Returns `true` if the field is enabled and the parent FormBuilder is enabled.
   bool get enabled => widget.enabled && (_formBuilderState?.enabled ?? true);
 
-  FocusNode _focusNode;
+  /// Returns `true` if the field is read only.
+  ///
+  /// See [FormBuilder.skipDisabled] for more information.
+  bool get readOnly => !(_formBuilderState?.widget.skipDisabled ?? false);
 
-  FocusNode get effectiveFocusNode => _focusNode;
+  /// Will be true if the field is dirty
+  ///
+  /// The value of field is changed by user or by logic code.
+  bool get isDirty => _dirty;
+
+  /// Will be true if the field is touched
+  ///
+  /// The field is focused by user or by logic code
+  bool get isTouched => _touched;
+
+  void registerTransformer(Map<String, Function> map) {
+    final fun = widget.valueTransformer;
+    if (fun != null) {
+      map[widget.name] = fun;
+    }
+  }
 
   @override
   void initState() {
     super.initState();
     // Register this field when there is a parent FormBuilder
     _formBuilderState = FormBuilder.of(context);
-    _formBuilderState?.registerField(widget.name, this);
-    // Register a touch handler
-    _focusNode = widget.focusNode ?? FocusNode();
-    _focusNode.addListener(_touchedHandler);
     // Set the initial value
-    setValue(initialValue);
+    _formBuilderState?.registerField(widget.name, this);
+
+    effectiveFocusNode = widget.focusNode ?? FocusNode(debugLabel: widget.name);
+    // Register a touch handler
+    effectiveFocusNode.addListener(_touchedHandler);
+    focusAttachment = effectiveFocusNode.attach(context);
+
+    // Verify if need auto validate form
+  }
+
+  @override
+  void didUpdateWidget(covariant FormBuilderField<T> oldWidget) {
+    super.didUpdateWidget(oldWidget);
+    if (widget.name != oldWidget.name) {
+      _formBuilderState?.unregisterField(oldWidget.name, this);
+      _formBuilderState?.registerField(widget.name, this);
+    }
+    if (widget.focusNode != oldWidget.focusNode) {
+      focusAttachment?.detach();
+      effectiveFocusNode.removeListener(_touchedHandler);
+      effectiveFocusNode =
+          widget.focusNode ?? FocusNode(canRequestFocus: enabled);
+      effectiveFocusNode.addListener(_touchedHandler);
+      focusAttachment = effectiveFocusNode.attach(context);
+    }
   }
 
   @override
   void dispose() {
-    _focusNode.removeListener(_touchedHandler);
-    // Dispose focus node when created by initState
-    if (null == widget.focusNode) {
-      _focusNode.dispose();
+    effectiveFocusNode.removeListener(_touchedHandler);
+    // Checking if the focusNode is handled by the parent or not
+    if (widget.focusNode == null) {
+      effectiveFocusNode.dispose();
     }
     _formBuilderState?.unregisterField(widget.name, this);
     super.dispose();
   }
 
-  @override
-  void save() {
-    super.save();
+  void _informFormForFieldChange() {
     if (_formBuilderState != null) {
-      if (enabled || !_formBuilderState.widget.skipDisabled) {
-        _formBuilderState.setInternalFieldValue(
-          widget.name,
-          null != widget.valueTransformer
-              ? widget.valueTransformer(value)
-              : value,
-        );
-      } else {
-        _formBuilderState.removeInternalFieldValue(widget.name);
+      _dirty = !_hasSameValue(value, initialValue);
+      if (enabled || readOnly) {
+        _formBuilderState!.setInternalFieldValue<T>(widget.name, value);
+        return;
       }
+      _formBuilderState!.removeInternalFieldValue(widget.name);
     }
   }
 
+  bool _hasSameValue(T? currentValue, T? initialValue) {
+    if (currentValue is List && initialValue is List) {
+      return listEquals(currentValue, initialValue);
+    }
+    if (currentValue is Set && initialValue is Set) {
+      return setEquals(currentValue, initialValue);
+    }
+    if (currentValue is Map && initialValue is Map) {
+      return mapEquals(currentValue, initialValue);
+    }
+    return currentValue == initialValue;
+  }
+
   void _touchedHandler() {
-    if (_focusNode.hasFocus && _touched == false) {
+    if (effectiveFocusNode.hasFocus && _touched == false) {
       setState(() => _touched = true);
     }
   }
 
   @override
-  void didChange(T val) {
-    super.didChange(val);
+  void setValue(T? value, {bool populateForm = true}) {
+    super.setValue(value);
+    if (populateForm) {
+      _informFormForFieldChange();
+    }
+  }
+
+  @override
+  void didChange(T? value) {
+    super.didChange(value);
+    if (_customErrorText != null) {
+      setState(() => _customErrorText = null);
+    }
+    _informFormForFieldChange();
     widget.onChanged?.call(value);
   }
 
   @override
+  /// Reset field value to initial value
+  ///
+  /// Also reset custom error text if exists, and set [isDirty] to `false`.
   void reset() {
     super.reset();
-    setValue(initialValue);
-    widget.onReset?.call();
+    _dirty = false;
+    didChange(initialValue);
+    if (_customErrorText != null) {
+      setState(() => _customErrorText = null);
+    }
   }
 
+  /// Validate field
+  ///
+  /// **BREAKING CHANGE**:
+  /// In previous versions, calling `validate()` would automatically clear any custom errors set via `invalidate()`.
+  /// Now, `validate()` does not clear custom errors by default.
+  /// If you want to clear the custom error when validating, you must explicitly pass `clearCustomError: true`.
+  ///
+  /// Clear custom error if [clearCustomError] is `true`.
+  /// By default `false`
+  ///
+  /// Focus when field is invalid if [focusOnInvalid] is `true`.
+  /// By default `true`
+  ///
+  /// Auto scroll when focus invalid if [autoScrollWhenFocusOnInvalid] is `true`.
+  /// By default `false`.
+  ///
+  /// Note: If a invalid field is from type **TextField** and will focused,
+  /// the form will auto scroll to show this invalid field.
+  /// In this case, the automatic scroll happens because is a behavior inside the framework,
+  /// not because [autoScrollWhenFocusOnInvalid] is `true`.
   @override
-  bool validate() {
-    return super.validate() && widget.decoration?.errorText == null;
+  bool validate({
+    bool clearCustomError = false,
+    bool focusOnInvalid = true,
+    bool autoScrollWhenFocusOnInvalid = false,
+  }) {
+    if (clearCustomError) {
+      setState(() => _customErrorText = null);
+    }
+    final isValid = super.validate() && !hasError;
+
+    final fields =
+        _formBuilderState?.fields ??
+        <String, FormBuilderFieldState<FormBuilderField<dynamic>, dynamic>>{};
+
+    if (!isValid &&
+        focusOnInvalid &&
+        (formState?.focusOnInvalid ?? true) &&
+        enabled &&
+        !fields.values.any((e) => e.effectiveFocusNode.hasFocus)) {
+      focus();
+      if (autoScrollWhenFocusOnInvalid) ensureScrollableVisibility();
+    }
+
+    return isValid;
   }
 
-  void requestFocus() {
+  /// Invalidate field with a [errorText]
+  ///
+  /// Focus field if [shouldFocus] is `true`.
+  /// By default `true`
+  ///
+  /// Auto scroll when focus invalid if [shouldAutoScrollWhenFocus] is `true`.
+  /// By default `false`.
+  ///
+  /// Note: If a invalid field is from type **TextField** and will focused,
+  /// the form will auto scroll to show this invalid field.
+  /// In this case, the automatic scroll happens because is a behavior inside the framework,
+  /// not because [shouldAutoScrollWhenFocus] is `true`.
+  void invalidate(
+    String errorText, {
+    bool shouldFocus = true,
+    bool shouldAutoScrollWhenFocus = false,
+  }) {
+    setState(() => _customErrorText = errorText);
+
+    validate(
+      clearCustomError: false,
+      autoScrollWhenFocusOnInvalid: shouldAutoScrollWhenFocus,
+      focusOnInvalid: shouldFocus,
+    );
+  }
+
+  /// Focus field
+  void focus() {
     FocusScope.of(context).requestFocus(effectiveFocusNode);
   }
 
-  //  FIXME: This  could be a getter instead of a classic function
-  InputDecoration decoration() => widget.decoration.copyWith(
-        errorText: widget.decoration.errorText ?? errorText,
-      );
+  /// Scroll to show field
+  void ensureScrollableVisibility() {
+    Scrollable.ensureVisible(context);
+  }
 }

@@ -1,10 +1,9 @@
-import 'package:flutter/material.dart';
-import 'package:flutter/widgets.dart';
+import 'package:material_ui/material_ui.dart';
 import 'package:flutter_form_builder/flutter_form_builder.dart';
 import 'package:intl/intl.dart';
 
 /// Field to select a range of values on a Slider
-class FormBuilderRangeSlider extends FormBuilderField<RangeValues> {
+class FormBuilderRangeSlider extends FormBuilderFieldDecoration<RangeValues> {
   /// Called when the user starts selecting new values for the slider.
   ///
   /// This callback shouldn't be used to update the slider [values] (use
@@ -16,7 +15,7 @@ class FormBuilderRangeSlider extends FormBuilderField<RangeValues> {
   ///
   ///  * [onChangeEnd] for a callback that is called when the value change is
   ///    complete.
-  final ValueChanged<RangeValues> onChangeStart;
+  final ValueChanged<RangeValues>? onChangeStart;
 
   /// Called when the user is done selecting new values for the slider.
   ///
@@ -32,7 +31,7 @@ class FormBuilderRangeSlider extends FormBuilderField<RangeValues> {
   ///
   ///  * [onChangeStart] for a callback that is called when a value change
   ///    begins.
-  final ValueChanged<RangeValues> onChangeEnd;
+  final ValueChanged<RangeValues>? onChangeEnd;
 
   /// The minimum value the user can select.
   ///
@@ -53,7 +52,7 @@ class FormBuilderRangeSlider extends FormBuilderField<RangeValues> {
   /// Typically used with [labels] to show the current discrete values.
   ///
   /// If null, the slider is continuous.
-  final int divisions;
+  final int? divisions;
 
   /// Labels to show as text in the [SliderThemeData.rangeValueIndicatorShape].
   ///
@@ -70,7 +69,7 @@ class FormBuilderRangeSlider extends FormBuilderField<RangeValues> {
   ///
   ///  * [RangeSliderValueIndicatorShape] for how to create a custom value
   ///    indicator shape.
-  final RangeLabels labels;
+  final RangeLabels? labels;
 
   /// The color of the track's active segment, i.e. the span of track between
   /// the thumbs.
@@ -79,7 +78,7 @@ class FormBuilderRangeSlider extends FormBuilderField<RangeValues> {
   ///
   /// Using a [SliderTheme] gives more fine-grained control over the
   /// appearance of various components of the slider.
-  final Color activeColor;
+  final Color? activeColor;
 
   /// The color of the track's inactive segments, i.e. the span of tracks
   /// between the min and the start thumb, and the end thumb and the max.
@@ -88,7 +87,7 @@ class FormBuilderRangeSlider extends FormBuilderField<RangeValues> {
   ///
   /// Using a [SliderTheme] gives more fine-grained control over the
   /// appearance of various components of the slider.
-  final Color inactiveColor;
+  final Color? inactiveColor;
 
   /// The callback used to create a semantic value from the slider's values.
   ///
@@ -96,31 +95,88 @@ class FormBuilderRangeSlider extends FormBuilderField<RangeValues> {
   ///
   /// This is used by accessibility frameworks like TalkBack on Android to
   /// inform users what the currently selected value is with more context.
-  final SemanticFormatterCallback semanticFormatterCallback;
+  final SemanticFormatterCallback? semanticFormatterCallback;
+
+  /// An alternative to displaying the text value of the slider.
+  ///
+  /// Defaults to null.
+  ///
+  /// When used [minValueWidget] will override the value for the minimum widget.
+  final Widget Function(String min)? minValueWidget;
+
+  /// An alternative to displaying the text value of the slider.
+  ///
+  /// Defaults to null.
+  ///
+  /// When used [valueWidget] will override the value for the selected value widget.
+  final Widget Function(String value)? valueWidget;
+
+  /// An alternative to displaying the text value of the slider.
+  ///
+  /// Defaults to null.
+  ///
+  /// When used [maxValueWidget] will override the value for the maximum widget.
+  final Widget Function(String max)? maxValueWidget;
+
+  /// Provides the ability to format a number in a locale-specific way.
+  ///
+  /// The format is specified as a pattern using a subset of the ICU formatting
+  /// patterns.
+  ///
+  /// - `0` A single digit
+  /// - `#` A single digit, omitted if the value is zero
+  /// - `.` Decimal separator
+  /// - `-` Minus sign
+  /// - `,` Grouping separator
+  /// - `E` Separates mantissa and expontent
+  /// - `+` - Before an exponent, to say it should be prefixed with a plus sign.
+  /// - `%` - In prefix or suffix, multiply by 100 and show as percentage
+  /// - `‰ (\u2030)` In prefix or suffix, multiply by 1000 and show as per mille
+  /// - `¤ (\u00A4)` Currency sign, replaced by currency name
+  /// - `'` Used to quote special characters
+  /// - `;` Used to separate the positive and negative patterns (if both present)
+  ///
+  /// For example,
+  ///
+  ///       var f = NumberFormat("###.0#", "en_US");
+  ///       print(f.format(12.345));
+  ///           ==> 12.34
+  ///
+  /// If the locale is not specified, it will default to the current locale. If
+  /// the format is not specified it will print in a basic format with at least
+  /// one integer digit and three fraction digits.
+  ///
+  /// There are also standard patterns available via the special constructors.
+  /// e.g.
+  ///
+  ///       var percent = NumberFormat.percentPattern("ar"); var
+  ///       eurosInUSFormat = NumberFormat.currency(locale: "en_US",
+  ///           symbol: "€");
+  ///
+  /// There are several such constructors available, though some of them are
+  /// limited. For example, at the moment, scientificPattern prints only as
+  /// equivalent to "#E0" and does not take into account significant digits.
+  final NumberFormat? numberFormat;
 
   final DisplayValues displayValues;
-  final TextStyle minTextStyle;
-  final TextStyle textStyle;
-  final TextStyle maxTextStyle;
-  final NumberFormat numberFormat;
 
   /// Creates field to select a range of values on a Slider
   FormBuilderRangeSlider({
-    Key key,
-    //From Super
-    @required String name,
-    FormFieldValidator<RangeValues> validator,
-    RangeValues initialValue,
-    InputDecoration decoration = const InputDecoration(),
-    ValueChanged<RangeValues> onChanged,
-    ValueTransformer<RangeValues> valueTransformer,
-    bool enabled = true,
-    FormFieldSetter<RangeValues> onSaved,
-    AutovalidateMode autovalidateMode = AutovalidateMode.disabled,
-    VoidCallback onReset,
-    FocusNode focusNode,
-    @required this.min,
-    @required this.max,
+    super.key,
+    required super.name,
+    super.validator,
+    super.initialValue,
+    super.decoration,
+    super.onChanged,
+    super.valueTransformer,
+    super.enabled,
+    super.onSaved,
+    super.autovalidateMode = AutovalidateMode.disabled,
+    super.onReset,
+    super.focusNode,
+    super.errorBuilder,
+    required this.min,
+    required this.max,
     this.divisions,
     this.activeColor,
     this.inactiveColor,
@@ -129,85 +185,98 @@ class FormBuilderRangeSlider extends FormBuilderField<RangeValues> {
     this.labels,
     this.semanticFormatterCallback,
     this.displayValues = DisplayValues.all,
-    this.minTextStyle,
-    this.textStyle,
-    this.maxTextStyle,
+    this.minValueWidget,
+    this.valueWidget,
+    this.maxValueWidget,
     this.numberFormat,
   }) : super(
-            key: key,
-            initialValue: initialValue,
-            name: name,
-            validator: validator,
-            valueTransformer: valueTransformer,
-            onChanged: onChanged,
-            autovalidateMode: autovalidateMode,
-            onSaved: onSaved,
-            enabled: enabled,
-            onReset: onReset,
-            decoration: decoration,
-            focusNode: focusNode,
-            builder: (FormFieldState<RangeValues> field) {
-              final state = field as _FormBuilderRangeSliderState;
-              final _numberFormat = numberFormat ?? NumberFormat.compact();
-
-              return InputDecorator(
-                decoration: state.decoration(),
-                child: Container(
-                  padding: const EdgeInsets.only(top: 10.0),
-                  child: Column(
-                    crossAxisAlignment: CrossAxisAlignment.start,
-                    children: [
-                      RangeSlider(
-                        values: field.value,
-                        min: min,
-                        max: max,
-                        divisions: divisions,
-                        activeColor: activeColor,
-                        inactiveColor: inactiveColor,
-                        onChangeEnd: onChangeEnd,
-                        onChangeStart: onChangeStart,
-                        labels: labels,
-                        semanticFormatterCallback: semanticFormatterCallback,
-                        onChanged: state.enabled
-                            ? (values) {
-                                state.requestFocus();
-                                field.didChange(values);
-                              }
-                            : null,
-                      ),
-                      Row(
-                        children: <Widget>[
-                          if (displayValues != DisplayValues.none &&
-                              displayValues != DisplayValues.current)
-                            Text(
-                              _numberFormat.format(min),
-                              style: minTextStyle ?? textStyle,
-                            ),
-                          const Spacer(),
-                          if (displayValues != DisplayValues.none &&
-                              displayValues != DisplayValues.minMax)
-                            Text(
-                              '${_numberFormat.format(field.value.start)} - ${_numberFormat.format(field.value.end)}',
-                              style: textStyle,
-                            ),
-                          const Spacer(),
-                          if (displayValues != DisplayValues.none &&
-                              displayValues != DisplayValues.current)
-                            Text(
-                              _numberFormat.format(max),
-                              style: maxTextStyle ?? textStyle,
-                            ),
-                        ],
-                      ),
-                    ],
-                  ),
-                ),
-              );
-            });
+         builder: (FormFieldState<RangeValues?> field) {
+           final state = field as _FormBuilderRangeSliderState;
+           final effectiveNumberFormat = numberFormat ?? NumberFormat.compact();
+           if (field.value == null ||
+               field.value!.start < min ||
+               field.value!.start > max ||
+               field.value!.end < min ||
+               field.value!.end > max) {
+             if (initialValue == null) {
+               field.setValue(RangeValues(min, min));
+             } else {
+               field.setValue(
+                 RangeValues(initialValue.start, initialValue.end),
+               );
+             }
+           }
+           // TODO: Solve focus issue when Flutter team solve this issue
+           // https://github.com/flutter/flutter/issues/53958
+           return Focus(
+             focusNode: state.effectiveFocusNode,
+             skipTraversal: true,
+             canRequestFocus: state.enabled,
+             debugLabel: 'FormBuilderRangeSlider-$name',
+             child: InputDecorator(
+               decoration: state.decoration,
+               isFocused: state.effectiveFocusNode.hasFocus,
+               child: Container(
+                 padding: const EdgeInsets.only(top: 10.0),
+                 child: Column(
+                   crossAxisAlignment: CrossAxisAlignment.start,
+                   children: [
+                     RangeSlider(
+                       values: field.value!,
+                       min: min,
+                       max: max,
+                       divisions: divisions,
+                       activeColor: activeColor,
+                       inactiveColor: inactiveColor,
+                       onChangeEnd: onChangeEnd,
+                       onChangeStart: onChangeStart,
+                       labels: labels,
+                       semanticFormatterCallback: semanticFormatterCallback,
+                       onChanged: state.enabled
+                           ? (values) {
+                               field.didChange(values);
+                             }
+                           : null,
+                     ),
+                     Row(
+                       children: <Widget>[
+                         if (displayValues != DisplayValues.none &&
+                             displayValues != DisplayValues.current)
+                           minValueWidget?.call(
+                                 effectiveNumberFormat.format(min),
+                               ) ??
+                               Text(effectiveNumberFormat.format(min)),
+                         const Spacer(),
+                         if (displayValues != DisplayValues.none &&
+                             displayValues != DisplayValues.minMax)
+                           valueWidget?.call(
+                                 '${effectiveNumberFormat.format(field.value!.start)} - ${effectiveNumberFormat.format(field.value!.end)}',
+                               ) ??
+                               Text(
+                                 '${effectiveNumberFormat.format(field.value!.start)} - ${effectiveNumberFormat.format(field.value!.end)}',
+                               ),
+                         const Spacer(),
+                         if (displayValues != DisplayValues.none &&
+                             displayValues != DisplayValues.current)
+                           maxValueWidget?.call(
+                                 effectiveNumberFormat.format(max),
+                               ) ??
+                               Text(effectiveNumberFormat.format(max)),
+                       ],
+                     ),
+                   ],
+                 ),
+               ),
+             ),
+           );
+         },
+       );
 
   @override
-  _FormBuilderRangeSliderState createState() => _FormBuilderRangeSliderState();
+  FormBuilderFieldDecorationState<FormBuilderRangeSlider, RangeValues>
+  createState() => _FormBuilderRangeSliderState();
 }
 
 class _FormBuilderRangeSliderState
-    extends FormBuilderFieldState<FormBuilderRangeSlider, RangeValues> {}
+    extends
+        FormBuilderFieldDecorationState<FormBuilderRangeSlider, RangeValues> {}

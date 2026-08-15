@@ -1,11 +1,10 @@
-import 'package:flutter/material.dart';
-import 'package:flutter/widgets.dart';
+import 'package:material_ui/material_ui.dart';
 import 'package:flutter_form_builder/flutter_form_builder.dart';
 
 /// A list of `Chip`s that acts like radio buttons
-class FormBuilderChoiceChip<T> extends FormBuilderField<T> {
+class FormBuilderChoiceChips<T> extends FormBuilderFieldDecoration<T> {
   /// The list of items the user can select.
-  final List<FormBuilderFieldOption<T>> options;
+  final List<FormBuilderChipOption<T>> options;
 
   // FilterChip Settings
   /// Elevation to be applied on the chip relative to its parent.
@@ -13,7 +12,7 @@ class FormBuilderChoiceChip<T> extends FormBuilderField<T> {
   /// This controls the size of the shadow below the chip.
   ///
   /// Defaults to 0. The value is always non-negative.
-  final double elevation;
+  final double? elevation;
 
   /// Elevation to be applied on the chip relative to its parent during the
   /// press motion.
@@ -21,11 +20,11 @@ class FormBuilderChoiceChip<T> extends FormBuilderField<T> {
   /// This controls the size of the shadow below the chip.
   ///
   /// Defaults to 8. The value is always non-negative.
-  final double pressElevation;
+  final double? pressElevation;
 
   /// Color to be used for the chip's background, indicating that it is
   /// selected.
-  final Color selectedColor;
+  final Color? selectedColor;
 
   /// Color to be used for the chip's background indicating that it is disabled.
   ///
@@ -34,28 +33,62 @@ class FormBuilderChoiceChip<T> extends FormBuilderField<T> {
   /// and [DeletableChipAttributes.onDelete] are null.
   ///
   /// It defaults to [Colors.black38].
-  final Color disabledColor;
+  final Color? disabledColor;
 
   /// Color to be used for the unselected, enabled chip's background.
   ///
   /// The default is light grey.
-  final Color backgroundColor;
+  final Color? backgroundColor;
 
   /// Color of the chip's shadow when the elevation is greater than 0 and the
   /// chip is selected.
   ///
   /// The default is [Colors.black].
-  final Color selectedShadowColor;
+  final Color? selectedShadowColor;
 
   /// Color of the chip's shadow when the elevation is greater than 0.
   ///
   /// The default is [Colors.black].
-  final Color shadowColor;
+  final Color? shadowColor;
 
-  /// The [ShapeBorder] to draw around the chip.
+  /// The color and weight of the chip's outline.
   ///
-  /// Defaults to the shape in the ambient [ChipThemeData].
-  final ShapeBorder shape;
+  /// Defaults to the border side in the ambient [ChipThemeData]. If the theme
+  /// border side resolves to null and [ThemeData.useMaterial3] is true, then
+  /// [BorderSide] with a [ColorScheme.outline] color is used when the chip is
+  /// enabled, and [BorderSide] with a [ColorScheme.onSurface] color with an
+  /// opacity of 0.12 is used when the chip is disabled. Otherwise, it defaults
+  /// to null.
+  ///
+  /// This value is combined with [shape] to create a shape decorated with an
+  /// outline. To omit the outline entirely, pass [BorderSide.none] to [side].
+  ///
+  /// If it is a [WidgetStateBorderSide], [WidgetStateProperty.resolve] is
+  /// used for the following [WidgetState]s:
+  ///
+  ///  * [WidgetState.disabled].
+  ///  * [WidgetState.selected].
+  ///  * [WidgetState.hovered].
+  ///  * [WidgetState.focused].
+  ///  * [WidgetState.pressed].
+  final BorderSide? side;
+
+  /// The [OutlinedBorder] to draw around the chip.
+  ///
+  /// Defaults to the shape in the ambient [ChipThemeData]. If the theme
+  /// shape resolves to null, the default is [StadiumBorder].
+  ///
+  /// This shape is combined with [side] to create a shape decorated with an
+  /// outline. If it is a [WidgetStateOutlinedBorder],
+  /// [WidgetStateProperty.resolve] is used for the following
+  /// [WidgetState]s:
+  ///
+  ///  * [WidgetState.disabled].
+  ///  * [WidgetState.selected].
+  ///  * [WidgetState.hovered].
+  ///  * [WidgetState.focused].
+  ///  * [WidgetState.pressed].
+  final OutlinedBorder? shape;
 
   /// Configures the minimum size of the tap target.
   ///
@@ -64,13 +97,13 @@ class FormBuilderChoiceChip<T> extends FormBuilderField<T> {
   /// See also:
   ///
   ///  * [MaterialTapTargetSize], for a description of how this affects tap targets.
-  final MaterialTapTargetSize materialTapTargetSize;
+  final MaterialTapTargetSize? materialTapTargetSize;
 
   /// The padding around the [label] widget.
   ///
   /// By default, this is 4 logical pixels at the beginning and the end of the
   /// label, and zero on top and bottom.
-  final EdgeInsets labelPadding;
+  final EdgeInsets? labelPadding;
 
   /// The style to be applied to the chip's label.
   ///
@@ -79,20 +112,20 @@ class FormBuilderChoiceChip<T> extends FormBuilderField<T> {
   /// This only has an effect on widgets that respect the [DefaultTextStyle],
   /// such as [Text].
   ///
-  /// If [labelStyle.color] is a [MaterialStateProperty<Color>], [MaterialStateProperty.resolve]
-  /// is used for the following [MaterialState]s:
+  /// If [labelStyle.color] is a [MaterialStateProperty<Color>], [WidgetStateProperty.resolve]
+  /// is used for the following [WidgetState]s:
   ///
-  ///  * [MaterialState.disabled].
-  ///  * [MaterialState.selected].
-  ///  * [MaterialState.hovered].
-  ///  * [MaterialState.focused].
-  ///  * [MaterialState.pressed].
-  final TextStyle labelStyle;
+  ///  * [WidgetState.disabled].
+  ///  * [WidgetState.selected].
+  ///  * [WidgetState.hovered].
+  ///  * [WidgetState.focused].
+  ///  * [WidgetState.pressed].
+  final TextStyle? labelStyle;
 
   /// The padding between the contents of the chip and the outside [shape].
   ///
   /// Defaults to 4 logical pixels on all sides.
-  final EdgeInsets padding;
+  final EdgeInsets? padding;
 
   /// Defines how compact the chip's layout will be.
   ///
@@ -104,7 +137,7 @@ class FormBuilderChoiceChip<T> extends FormBuilderField<T> {
   ///
   ///  * [ThemeData.visualDensity], which specifies the [density] for all widgets
   ///    within a [Theme].
-  final VisualDensity visualDensity;
+  final VisualDensity? visualDensity;
 
   // Wrap Settings
   /// The direction to use as the main axis when wrapping chips.
@@ -213,7 +246,7 @@ class FormBuilderChoiceChip<T> extends FormBuilderField<T> {
   /// [crossAxisAlignment] is either [WrapCrossAlignment.start] or
   /// [WrapCrossAlignment.end], or there's more than one child, then the
   /// [textDirection] (or the ambient [Directionality]) must not be null.
-  final TextDirection textDirection;
+  final TextDirection? textDirection;
 
   /// Determines the order to lay children out vertically and how to interpret
   /// `start` and `end` in the vertical direction.
@@ -239,105 +272,221 @@ class FormBuilderChoiceChip<T> extends FormBuilderField<T> {
   /// [verticalDirection] must not be null.
   final VerticalDirection verticalDirection;
 
+  final ShapeBorder avatarBorder;
+
+  /// Indicates whether a checkmark should be displayed on the selected choice chip.
+  ///
+  /// Defaults to `true`.
+  ///
+  /// When set to `true`, a checkmark will appear on the selected chip to visually
+  /// indicate its selection status. If set to `false`, no checkmark will be shown.
+  final bool showCheckmark;
+
+  /// The surface tint color of the chip when it is selected.
+  ///
+  /// In Material 3, a surface tint is applied to cards and other surfaces to help
+  /// indicate elevation. This property allows customization of that tint color.
+  /// If null, [ThemeData.surfaceTintColor] is used.
+  ///
+  /// See also:
+  ///  * [Material.surfaceTintColor], which is used to implement the background
+  ///    tint for elevated surfaces in Material 3.
+  final Color? surfaceTintColor;
+
+  /// {@macro flutter.material.Material.clipBehavior}
+  ///
+  /// Defaults to [Clip.none].
+  ///
+  /// This property can be used to clip the content of the chip when it overflows
+  /// its bounds. For example, if you have a long label text that doesn't fit
+  /// within the chip's bounds, setting this to [Clip.hardEdge] will clip the
+  /// overflowing text.
+  final Clip clipBehavior;
+
+  /// The color of the chip's check mark when selected.
+  ///
+  /// If null, [ChipThemeData.checkmarkColor] is used. If that is also null,
+  /// [ColorScheme.primary] is used.
+  ///
+  /// This color is used to indicate the selected state of the chip when
+  /// [showCheckmark] is true.
+  final Color? checkmarkColor;
+
+  /// {@macro flutter.widgets.Focus.autofocus}
+  final bool autofocus;
+
+  /// Constraints to be enforced on the avatar's box.
+  ///
+  /// If null, the avatar will occupy the minimum necessary space.
+  final BoxConstraints? avatarBoxConstraints;
+
+  /// The style of the chip's animation when selected or deselected.
+  ///
+  /// This property is only used if [selected] is non-null. If [selected] is
+  /// null, the chip cannot be selected and therefore cannot animate between
+  /// selected and deselected states.
+  final ChipAnimationStyle? chipAnimationStyle;
+
+  /// The color of the chip.
+  ///
+  /// This color will be used for the background of the chip if [selected] is
+  /// false, or if [selected] is null and [onSelected] is null.
+  final WidgetStateProperty<Color?>? color;
+
+  /// The icon theme data for the icon.
+  ///
+  /// This property can be used to style the icon in the chip.
+  final IconThemeData? iconTheme;
+
+  /// The tooltip message to show when long pressing on the chip.
+  ///
+  /// If [tooltip] is an empty string, no tooltip will be shown.
+  final String? tooltip;
+
   /// Creates a list of `Chip`s that acts like radio buttons
-  FormBuilderChoiceChip({
-    Key key,
-    //From Super
-    @required String name,
-    FormFieldValidator<T> validator,
-    T initialValue,
-    InputDecoration decoration = const InputDecoration(),
-    ValueChanged<T> onChanged,
-    ValueTransformer<T> valueTransformer,
-    bool enabled = true,
-    FormFieldSetter<T> onSaved,
-    AutovalidateMode autovalidateMode = AutovalidateMode.disabled,
-    VoidCallback onReset,
-    FocusNode focusNode,
-    @required this.options,
-    this.selectedColor,
-    this.disabledColor,
-    this.backgroundColor,
-    this.shadowColor,
-    this.selectedShadowColor,
-    this.shape,
-    this.elevation,
-    this.pressElevation,
-    this.materialTapTargetSize,
-    this.direction = Axis.horizontal,
+  FormBuilderChoiceChips({
+    super.autovalidateMode = AutovalidateMode.disabled,
+    super.enabled,
+    super.focusNode,
+    super.onSaved,
+    super.validator,
+    super.decoration,
+    super.key,
+    required super.name,
+    super.forceErrorText,
+    required this.options,
+    super.initialValue,
+    super.restorationId,
+    super.onChanged,
+    super.valueTransformer,
+    super.onReset,
+    super.errorBuilder,
     this.alignment = WrapAlignment.start,
+    this.avatarBorder = const CircleBorder(),
+    this.backgroundColor,
     this.crossAxisAlignment = WrapCrossAlignment.start,
+    this.direction = Axis.horizontal,
+    this.disabledColor,
+    this.elevation,
+    this.labelPadding,
+    this.labelStyle,
+    this.materialTapTargetSize,
+    this.padding,
+    this.pressElevation,
     this.runAlignment = WrapAlignment.start,
     this.runSpacing = 0.0,
+    this.selectedColor,
+    this.selectedShadowColor,
+    this.shadowColor,
+    this.side,
+    this.shape,
     this.spacing = 0.0,
     this.textDirection,
     this.verticalDirection = VerticalDirection.down,
-    this.labelPadding,
-    this.labelStyle,
-    this.padding,
     this.visualDensity,
+    this.showCheckmark = true,
+    this.surfaceTintColor,
+    this.clipBehavior = Clip.none,
+    this.checkmarkColor,
+    this.autofocus = false,
+    this.avatarBoxConstraints,
+    this.chipAnimationStyle,
+    this.color,
+    this.iconTheme,
+    this.tooltip,
   }) : super(
-            key: key,
-            initialValue: initialValue,
-            name: name,
-            validator: validator,
-            valueTransformer: valueTransformer,
-            onChanged: onChanged,
-            autovalidateMode: autovalidateMode,
-            onSaved: onSaved,
-            enabled: enabled,
-            onReset: onReset,
-            decoration: decoration,
-            focusNode: focusNode,
-            builder: (FormFieldState<T> field) {
-              final state = field as _FormBuilderChoiceChipState<T>;
+         builder: (FormFieldState<T?> field) {
+           final state = field as _FormBuilderChoiceChipState<T>;
 
-              return InputDecorator(
-                decoration: state.decoration(),
-                child: Wrap(
-                  direction: direction,
-                  alignment: alignment,
-                  crossAxisAlignment: crossAxisAlignment,
-                  runAlignment: runAlignment,
-                  runSpacing: runSpacing,
-                  spacing: spacing,
-                  textDirection: textDirection,
-                  verticalDirection: verticalDirection,
-                  children: <Widget>[
-                    for (FormBuilderFieldOption<T> option in options)
-                      ChoiceChip(
-                        label: option,
-                        selected: field.value == option.value,
-                        onSelected: state.enabled
-                            ? (selected) {
-                                final choice = selected ? option.value : null;
-                                state.requestFocus();
-                                state.didChange(choice);
-                              }
-                            : null,
-                        selectedColor: selectedColor,
-                        disabledColor: disabledColor,
-                        backgroundColor: backgroundColor,
-                        shadowColor: shadowColor,
-                        selectedShadowColor: selectedShadowColor,
-                        shape: shape,
-                        elevation: elevation,
-                        pressElevation: pressElevation,
-                        materialTapTargetSize: materialTapTargetSize,
-                        labelStyle: labelStyle,
-                        labelPadding: labelPadding,
-                        padding: padding,
-                        visualDensity: visualDensity,
-                      ),
-                  ],
-                ),
-              );
-            });
+           return Focus(
+             focusNode: state.effectiveFocusNode,
+             skipTraversal: true,
+             canRequestFocus: state.enabled,
+             debugLabel: 'FormBuilderChoiceChip-$name',
+             child: InputDecorator(
+               decoration: state.decoration,
+               isFocused: state.effectiveFocusNode.hasFocus,
+               child: Wrap(
+                 direction: direction,
+                 alignment: alignment,
+                 crossAxisAlignment: crossAxisAlignment,
+                 runAlignment: runAlignment,
+                 runSpacing: runSpacing,
+                 spacing: spacing,
+                 textDirection: textDirection,
+                 verticalDirection: verticalDirection,
+                 children: <Widget>[
+                   for (FormBuilderChipOption<T> option in options)
+                     ChoiceChip(
+                       label: option,
+                       side: side,
+                       shape: shape,
+                       selected: field.value == option.value,
+                       onSelected: state.enabled
+                           ? (selected) {
+                               final choice = selected ? option.value : null;
+                               state.didChange(choice);
+                             }
+                           : null,
+                       avatar: option.avatar,
+                       selectedColor: selectedColor,
+                       disabledColor: disabledColor,
+                       backgroundColor: backgroundColor,
+                       shadowColor: shadowColor,
+                       selectedShadowColor: selectedShadowColor,
+                       elevation: elevation,
+                       pressElevation: pressElevation,
+                       materialTapTargetSize: materialTapTargetSize,
+                       labelStyle: labelStyle,
+                       labelPadding: labelPadding,
+                       padding: padding,
+                       visualDensity: visualDensity,
+                       avatarBorder: avatarBorder,
+                       showCheckmark: showCheckmark,
+                       surfaceTintColor: surfaceTintColor,
+                       clipBehavior: clipBehavior,
+                       checkmarkColor: checkmarkColor,
+                       autofocus: autofocus,
+                       avatarBoxConstraints: avatarBoxConstraints,
+                       chipAnimationStyle: chipAnimationStyle,
+                       color: color,
+                       iconTheme: iconTheme,
+                       tooltip: tooltip,
+                     ),
+                 ],
+               ),
+             ),
+           );
+         },
+       );
 
   @override
-  _FormBuilderChoiceChipState<T> createState() =>
+  FormBuilderFieldDecorationState<FormBuilderChoiceChips<T>, T> createState() =>
       _FormBuilderChoiceChipState<T>();
 }
 
 class _FormBuilderChoiceChipState<T>
-    extends FormBuilderFieldState<FormBuilderChoiceChip<T>, T> {}
+    extends FormBuilderFieldDecorationState<FormBuilderChoiceChips<T>, T> {
+  void handleFocusChange() {
+    setState(() {});
+  }
+
+  @override
+  void initState() {
+    super.initState();
+    effectiveFocusNode.addListener(handleFocusChange);
+  }
+
+  @override
+  void dispose() {
+    effectiveFocusNode.removeListener(handleFocusChange);
+    super.dispose();
+  }
+
+  @override
+  void didChange(T? value) {
+    focus();
+    // effectiveFocusNode.requestFocus();
+    super.didChange(value);
+  }
+}

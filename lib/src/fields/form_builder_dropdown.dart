@@ -1,31 +1,27 @@
-import 'package:flutter/material.dart';
-import 'package:flutter/widgets.dart';
+import 'package:flutter/foundation.dart';
+import 'package:material_ui/material_ui.dart';
 import 'package:flutter_form_builder/flutter_form_builder.dart';
+import 'package:flutter_form_builder/src/extensions/generic_validator.dart';
 
 /// Field for Dropdown button
-class FormBuilderDropdown<T> extends FormBuilderField<T> {
+class FormBuilderDropdown<T> extends FormBuilderFieldDecoration<T> {
   /// The list of items the user can select.
   ///
   /// If the [onChanged] callback is null or the list of items is null
   /// then the dropdown button will be disabled, i.e. its arrow will be
   /// displayed in grey and it will not respond to input. A disabled button
-  /// will display the [disabledHint] widget if it is non-null. If
-  /// [disabledHint] is also null but [hint] is non-null, [hint] will instead
-  /// be displayed.
-  final List<DropdownMenuItem<T>> items;
-
-  /// A placeholder widget that is displayed by the dropdown button.
+  /// will display the [disabledHint] widget if it is non-null.
   ///
-  /// If [value] is null, this widget is displayed as a placeholder for
-  /// the dropdown button's value. This widget is also displayed if the button
-  /// is disabled ([items] or [onChanged] is null) and [disabledHint] is null.
-  final Widget hint;
+  /// If [decoration.hint] and variations is non-null and [disabledHint] is null,
+  /// the [decoration.hint] widget will be displayed instead.
+  final List<DropdownMenuItem<T>> items;
 
   /// A message to show when the dropdown is disabled.
   ///
-  /// Displayed if [items] or [onChanged] is null. If [hint] is non-null and
-  /// [disabledHint] is null, the [hint] widget will be displayed instead.
-  final Widget disabledHint;
+  /// Displayed if [items] or [onChanged] is null. If [decoration.hint] and
+  /// variations is non-null and [disabledHint] is null, the [decoration.hint]
+  /// widget will be displayed instead.
+  final Widget? disabledHint;
 
   /// Called when the dropdown button is tapped.
   ///
@@ -33,7 +29,7 @@ class FormBuilderDropdown<T> extends FormBuilderField<T> {
   /// selects an item from the dropdown.
   ///
   /// The callback will not be invoked if the dropdown button is disabled.
-  final VoidCallback onTap;
+  final VoidCallback? onTap;
 
   /// A builder to customize the dropdown buttons corresponding to the
   /// [DropdownMenuItem]s in [items].
@@ -42,14 +38,16 @@ class FormBuilderDropdown<T> extends FormBuilderField<T> {
   /// from the list corresponds to the [DropdownMenuItem] of the same index
   /// in [items].
   ///
-  /// {@tool dartpad --template=stateful_widget_scaffold}
-  ///
+  /// {@tool dartpad}
   /// This sample shows a `DropdownButton` with a button with [Text] that
   /// corresponds to but is unique from [DropdownMenuItem].
   ///
+  /// ** See code in examples/api/lib/material/dropdown/dropdown_button.selected_item_builder.0.dart **
+  /// {@end-tool}
+  ///
   /// If this callback is null, the [DropdownMenuItem] from [items]
   /// that matches [value] will be displayed.
-  final DropdownButtonBuilder selectedItemBuilder;
+  final DropdownButtonBuilder? selectedItemBuilder;
 
   /// The z-coordinate at which to place the menu when open.
   ///
@@ -107,14 +105,14 @@ class FormBuilderDropdown<T> extends FormBuilderField<T> {
   /// ```
   /// {@end-tool}
   ///
-  /// Defaults to the [TextTheme.subtitle1] value of the current
+  /// Defaults to the [TextTheme.titleMedium] value of the current
   /// [ThemeData.textTheme] of the current [Theme].
-  final TextStyle style;
+  final TextStyle? style;
 
   /// The widget to use for the drop-down button's icon.
   ///
   /// Defaults to an [Icon] with the [Icons.arrow_drop_down] glyph.
-  final Widget icon;
+  final Widget? icon;
 
   /// The color of any [Icon] descendant of [icon] if this button is disabled,
   /// i.e. if [onChanged] is null.
@@ -122,7 +120,7 @@ class FormBuilderDropdown<T> extends FormBuilderField<T> {
   /// Defaults to [Colors.grey.shade400] when the theme's
   /// [ThemeData.brightness] is [Brightness.light] and to
   /// [Colors.white10] when it is [Brightness.dark]
-  final Color iconDisabledColor;
+  final Color? iconDisabledColor;
 
   /// The color of any [Icon] descendant of [icon] if this button is enabled,
   /// i.e. if [onChanged] is defined.
@@ -130,7 +128,7 @@ class FormBuilderDropdown<T> extends FormBuilderField<T> {
   /// Defaults to [Colors.grey.shade700] when the theme's
   /// [ThemeData.brightness] is [Brightness.light] and to
   /// [Colors.white70] when it is [Brightness.dark]
-  final Color iconEnabledColor;
+  final Color? iconEnabledColor;
 
   /// The size to use for the drop-down button's down arrow icon button.
   ///
@@ -163,10 +161,16 @@ class FormBuilderDropdown<T> extends FormBuilderField<T> {
   /// the dropdown button. That's because, in this case, the initial scroll
   /// offset is computed as if all of the menu item heights were
   /// [kMinInteractiveDimension].
-  final double itemHeight;
+  final double? itemHeight;
+
+  /// The width of the menu.
+  ///
+  /// If it is not provided, the width of the menu is the width of the
+  /// dropdown button.
+  final double? menuWidth;
 
   /// The color for the button's [Material] when it has the input focus.
-  final Color focusColor;
+  final Color? focusColor;
 
   /// {@macro flutter.widgets.Focus.autofocus}
   final bool autofocus;
@@ -175,128 +179,215 @@ class FormBuilderDropdown<T> extends FormBuilderField<T> {
   ///
   /// If it is not provided, the theme's [ThemeData.canvasColor] will be used
   /// instead.
-  final Color dropdownColor;
+  final Color? dropdownColor;
 
-  final bool allowClear;
-  final Widget clearIcon;
+  /// Padding around the visible portion of the dropdown widget.
+  ///
+  /// As the padding increases, the size of the [DropdownButton] will also
+  /// increase. The padding is included in the clickable area of the dropdown
+  /// widget, so this can make the widget easier to click.
+  ///
+  /// Padding can be useful when used with a custom border. The clickable
+  /// area will stay flush with the border, as opposed to an external [Padding]
+  /// widget which will leave a non-clickable gap.
+  final EdgeInsetsGeometry? padding;
+
+  /// The maximum height of the menu.
+  ///
+  /// The maximum height of the menu must be at least one row shorter than
+  /// the height of the app's view. This ensures that a tappable area
+  /// outside of the simple menu is present so the user can dismiss the menu.
+  ///
+  /// If this property is set above the maximum allowable height threshold
+  /// mentioned above, then the menu defaults to being padded at the top
+  /// and bottom of the menu by at one menu item's height.
+  final double? menuMaxHeight;
+
+  /// Whether detected gestures should provide acoustic and/or haptic feedback.
+  ///
+  /// For example, on Android a tap will produce a clicking sound and a
+  /// long-press will produce a short vibration, when feedback is enabled.
+  ///
+  /// By default, platform-specific feedback is enabled.
+  ///
+  /// See also:
+  ///
+  ///  * [Feedback] for providing platform-specific feedback to certain actions.
+  final bool? enableFeedback;
+
+  /// Defines how the hint or the selected item is positioned within the button.
+  ///
+  /// This property must not be null. It defaults to [AlignmentDirectional.centerStart].
+  ///
+  /// See also:
+  ///
+  ///  * [Alignment], a class with convenient constants typically used to
+  ///    specify an [AlignmentGeometry].
+  ///  * [AlignmentDirectional], like [Alignment] for specifying alignments
+  ///    relative to text direction.
+  final AlignmentGeometry alignment;
+
+  /// Defines the corner radii of the menu's rounded rectangle shape.
+  ///
+  /// The radius of the first menu item's top left and right corners are
+  /// defined by the corresponding properties of the [borderRadius].
+  /// Similarly, the radii of the last menu item's bottom and right corners
+  /// are defined by the corresponding properties of the [borderRadius].
+  final BorderRadius? borderRadius;
+
+  /// A placeholder widget that is displayed by the dropdown button.
+  ///
+  /// If [value] is null and the dropdown is enabled ([items] and [onChanged] are non-null),
+  /// this widget is displayed as a placeholder for the dropdown button's value.
+  ///
+  /// If [value] is null and the dropdown is disabled and [disabledHint] is null,
+  /// this widget is used as the placeholder.
+  final Widget? hint;
+
+  /// The widget to use for drawing the drop-down button's underline.
+  ///
+  /// Defaults to SizedBox.shrink().
+  final Widget? underline;
 
   /// Creates field for Dropdown button
   FormBuilderDropdown({
-    Key key,
-    //From Super
-    @required String name,
-    FormFieldValidator<T> validator,
-    T initialValue,
-    InputDecoration decoration = const InputDecoration(),
-    ValueChanged<T> onChanged,
-    ValueTransformer<T> valueTransformer,
-    bool enabled = true,
-    FormFieldSetter<T> onSaved,
-    AutovalidateMode autovalidateMode = AutovalidateMode.disabled,
-    VoidCallback onReset,
-    FocusNode focusNode,
-    @required this.items,
+    super.key,
+    required super.name,
+    super.validator,
+    super.initialValue,
+    super.decoration,
+    super.onChanged,
+    super.valueTransformer,
+    super.enabled,
+    super.onSaved,
+    super.autovalidateMode = AutovalidateMode.disabled,
+    super.onReset,
+    super.focusNode,
+    super.restorationId,
+    super.errorBuilder,
+    required this.items,
     this.isExpanded = true,
     this.isDense = true,
     this.elevation = 8,
     this.iconSize = 24.0,
-    this.hint,
     this.style,
     this.disabledHint,
     this.icon,
     this.iconDisabledColor,
     this.iconEnabledColor,
-    this.allowClear = false,
-    this.clearIcon = const Icon(Icons.close),
     this.onTap,
     this.autofocus = false,
     this.dropdownColor,
     this.focusColor,
-    this.itemHeight = kMinInteractiveDimension,
+    this.itemHeight,
     this.selectedItemBuilder,
-  }) : /*: assert(allowClear == true || clearIcon != null)*/ super(
-          key: key,
-          initialValue: initialValue,
-          name: name,
-          validator: validator,
-          valueTransformer: valueTransformer,
-          onChanged: onChanged,
-          autovalidateMode: autovalidateMode,
-          onSaved: onSaved,
-          enabled: enabled,
-          onReset: onReset,
-          decoration: decoration,
-          focusNode: focusNode,
-          builder: (FormFieldState<T> field) {
-            final state = field as _FormBuilderDropdownState<T>;
-            // DropdownButtonFormField
-            // TextFormField
+    this.menuMaxHeight,
+    this.enableFeedback,
+    this.borderRadius,
+    this.alignment = AlignmentDirectional.centerStart,
+    this.hint,
+    this.underline = const SizedBox.shrink(),
+    this.padding,
+    this.menuWidth,
+  }) : super(
+         builder: (FormFieldState<T?> field) {
+           final state = field as _FormBuilderDropdownState<T>;
 
-            void changeValue(T value) {
-              state.requestFocus();
-              state.didChange(value);
-            }
-
-            return InputDecorator(
-              decoration: state.decoration().copyWith(
-                    floatingLabelBehavior: hint == null
-                        ? decoration.floatingLabelBehavior
-                        : FloatingLabelBehavior.always,
-                  ),
-              isEmpty: state.value == null,
-              child: Row(
-                children: <Widget>[
-                  Expanded(
-                    child: DropdownButtonHideUnderline(
-                      child: DropdownButton<T>(
-                        isExpanded: isExpanded,
-                        hint: hint,
-                        items: items,
-                        value: field.value,
-                        style: style,
-                        isDense: isDense,
-                        disabledHint: field.value != null
-                            ? (items
-                                    .firstWhere(
-                                        (val) => val.value == field.value,
-                                        orElse: () => null)
-                                    ?.child ??
-                                Text(field.value.toString()))
-                            : disabledHint,
-                        elevation: elevation,
-                        iconSize: iconSize,
-                        icon: icon,
-                        iconDisabledColor: iconDisabledColor,
-                        iconEnabledColor: iconEnabledColor,
-                        onChanged: state.enabled
-                            ? (value) => changeValue(value)
-                            : null,
-                        onTap: onTap,
-                        focusNode: state.effectiveFocusNode,
-                        autofocus: autofocus,
-                        dropdownColor: dropdownColor,
-                        focusColor: focusColor,
-                        itemHeight: itemHeight,
-                        selectedItemBuilder: selectedItemBuilder,
-                      ),
-                    ),
-                  ),
-                  if (allowClear && state.enabled && field.value != null) ...[
-                    const VerticalDivider(),
-                    InkWell(
-                      child: clearIcon,
-                      onTap: () => changeValue(null),
-                    ),
-                  ]
-                ],
-              ),
-            );
-          },
-        );
+           final hasValue = items.map((e) => e.value).contains(field.value);
+           return InputDecorator(
+             decoration: state.decoration,
+             isEmpty: !hasValue,
+             child: DropdownButton<T>(
+               menuWidth: menuWidth,
+               padding: padding,
+               underline: underline,
+               isExpanded: isExpanded,
+               items: items,
+               value: hasValue ? field.value : null,
+               style: style,
+               isDense: isDense,
+               disabledHint: hasValue
+                   ? items
+                         .firstWhere(
+                           (dropDownItem) => dropDownItem.value == field.value,
+                         )
+                         .child
+                   : disabledHint,
+               elevation: elevation,
+               iconSize: iconSize,
+               icon: icon,
+               iconDisabledColor: iconDisabledColor,
+               iconEnabledColor: iconEnabledColor,
+               onChanged: state.enabled
+                   ? (T? value) {
+                       field.didChange(value);
+                     }
+                   : null,
+               onTap: onTap,
+               focusNode: state.effectiveFocusNode,
+               autofocus: autofocus,
+               dropdownColor: dropdownColor,
+               focusColor: focusColor,
+               itemHeight: itemHeight,
+               selectedItemBuilder: selectedItemBuilder,
+               menuMaxHeight: menuMaxHeight,
+               borderRadius: borderRadius,
+               enableFeedback: enableFeedback,
+               alignment: alignment,
+               hint: hint,
+             ),
+           );
+         },
+       );
 
   @override
-  _FormBuilderDropdownState<T> createState() => _FormBuilderDropdownState<T>();
+  FormBuilderFieldDecorationState<FormBuilderDropdown<T>, T> createState() =>
+      _FormBuilderDropdownState<T>();
 }
 
 class _FormBuilderDropdownState<T>
-    extends FormBuilderFieldState<FormBuilderDropdown<T>, T> {}
+    extends FormBuilderFieldDecorationState<FormBuilderDropdown<T>, T> {
+  @override
+  void initState() {
+    super.initState();
+    _resetUnknownInitialValue();
+  }
+
+  @override
+  void didUpdateWidget(covariant FormBuilderDropdown<T> oldWidget) {
+    super.didUpdateWidget(oldWidget);
+
+    final oldValues = oldWidget.items.map((e) => e.value).toList();
+    final currentlyValues = widget.items.map((e) => e.value).toList();
+    final oldChilds = oldWidget.items.map((e) => e.child.toString()).toList();
+    final currentlyChilds = widget.items
+        .map((e) => e.child.toString())
+        .toList();
+
+    _resetUnknownInitialValue();
+
+    if ((!listEquals(oldChilds, currentlyChilds) ||
+            !listEquals(oldValues, currentlyValues)) &&
+        (currentlyValues.contains(initialValue) ||
+            initialValue.emptyValidator())) {
+      setValue(initialValue);
+    }
+  }
+
+  /// Asserts when [initialValue] is not among the current items, like
+  /// [DropdownButton] does for its `value`. On release builds, where asserts
+  /// are disabled, falls back to a null value so an unselectable value is
+  /// never kept in the form state.
+  void _resetUnknownInitialValue() {
+    final values = widget.items.map((e) => e.value).toList();
+    if (!values.contains(initialValue) && !initialValue.emptyValidator()) {
+      assert(
+        values.contains(initialValue) && initialValue.emptyValidator(),
+        'The initialValue [$initialValue] is not in the list of items or is not null or empty. '
+        'Please provide one of the items as the initialValue or update your initial value. '
+        'By default, will apply [null] to field value',
+      );
+      setValue(null);
+    }
+  }
+}

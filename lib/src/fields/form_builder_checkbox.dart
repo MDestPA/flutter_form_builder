@@ -1,10 +1,9 @@
-import 'package:flutter/material.dart';
-import 'package:flutter/rendering.dart';
-import 'package:flutter/widgets.dart';
+import 'package:material_ui/material_ui.dart';
+
 import 'package:flutter_form_builder/flutter_form_builder.dart';
 
 /// Single Checkbox field
-class FormBuilderCheckbox extends FormBuilderField<bool> {
+class FormBuilderCheckbox extends FormBuilderFieldDecoration<bool> {
   /// The primary content of the CheckboxListTile.
   ///
   /// Typically a [Text] widget.
@@ -13,22 +12,22 @@ class FormBuilderCheckbox extends FormBuilderField<bool> {
   /// Additional content displayed below the title.
   ///
   /// Typically a [Text] widget.
-  final Widget subtitle;
+  final Widget? subtitle;
 
   /// A widget to display on the opposite side of the tile from the checkbox.
   ///
   /// Typically an [Icon] widget.
-  final Widget secondary;
+  final Widget? secondary;
 
   /// The color to use when this checkbox is checked.
   ///
   /// Defaults to accent color of the current [Theme].
-  final Color activeColor;
+  final Color? activeColor;
 
   /// The color to use for the check icon when this checkbox is checked.
   ///
   /// Defaults to Color(0xFFFFFFFF).
-  final Color checkColor;
+  final Color? checkColor;
 
   /// Where to place the control relative to its label.
   final ListTileControlAffinity controlAffinity;
@@ -40,6 +39,11 @@ class FormBuilderCheckbox extends FormBuilderField<bool> {
   ///
   /// When the value is null, the `contentPadding` is `EdgeInsets.symmetric(horizontal: 16.0)`.
   final EdgeInsets contentPadding;
+
+  /// Defines how compact the list tile's layout will be.
+  ///
+  /// {@macro flutter.material.themedata.visualDensity}
+  final VisualDensity? visualDensity;
 
   /// {@macro flutter.widgets.Focus.autofocus}
   final bool autofocus;
@@ -65,77 +69,113 @@ class FormBuilderCheckbox extends FormBuilderField<bool> {
   /// Normally, this property is left to its default value, false.
   final bool selected;
 
+  /// {@macro flutter.material.checkbox.shape}
+  ///
+  /// If this property is null then [CheckboxThemeData.shape] of [ThemeData.checkboxTheme]
+  /// is used. If that's null then the shape will be a [RoundedRectangleBorder]
+  /// with a circular corner radius of 1.0.
+  final OutlinedBorder? shape;
+
+  /// {@macro flutter.material.checkbox.side}
+  ///
+  /// The given value is passed directly to [Checkbox.side].
+  ///
+  /// If this property is null, then [CheckboxThemeData.side] of
+  /// [ThemeData.checkboxTheme] is used. If that is also null, then the side
+  /// will be width 2.
+  final BorderSide? side;
+
   /// Creates a single Checkbox field
   FormBuilderCheckbox({
-    //From Super
-    Key key,
-    @required String name,
-    FormFieldValidator<bool> validator,
-    bool initialValue,
-    InputDecoration decoration = const InputDecoration(),
-    ValueChanged<bool> onChanged,
-    ValueTransformer<bool> valueTransformer,
-    bool enabled = true,
-    FormFieldSetter<bool> onSaved,
-    AutovalidateMode autovalidateMode = AutovalidateMode.disabled,
-    VoidCallback onReset,
-    FocusNode focusNode,
-    @required this.title,
+    super.key,
+    required super.name,
+    super.validator,
+    super.initialValue,
+    super.decoration = const InputDecoration(
+      border: InputBorder.none,
+      focusedBorder: InputBorder.none,
+      enabledBorder: InputBorder.none,
+      errorBorder: InputBorder.none,
+      disabledBorder: InputBorder.none,
+    ),
+    super.onChanged,
+    super.valueTransformer,
+    super.enabled,
+    super.onSaved,
+    super.autovalidateMode = AutovalidateMode.disabled,
+    super.onReset,
+    super.focusNode,
+    super.restorationId,
+    super.errorBuilder,
+    super.forceErrorText,
+    required this.title,
     this.activeColor,
-    this.checkColor,
-    this.subtitle,
-    this.secondary,
-    this.controlAffinity = ListTileControlAffinity.leading,
-    this.contentPadding = EdgeInsets.zero,
     this.autofocus = false,
-    this.tristate = false,
+    this.checkColor,
+    this.contentPadding = EdgeInsets.zero,
+    this.visualDensity,
+    this.controlAffinity = ListTileControlAffinity.leading,
+    this.secondary,
     this.selected = false,
+    this.subtitle,
+    this.tristate = false,
+    this.shape,
+    this.side,
   }) : super(
-          key: key,
-          initialValue: initialValue,
-          name: name,
-          validator: validator,
-          valueTransformer: valueTransformer,
-          onChanged: onChanged,
-          autovalidateMode: autovalidateMode,
-          onSaved: onSaved,
-          enabled: enabled,
-          onReset: onReset,
-          decoration: decoration,
-          focusNode: focusNode,
-          builder: (FormFieldState<bool> field) {
-            final state = field as _FormBuilderCheckboxState;
+         builder: (FormFieldState<bool?> field) {
+           final state = field as _FormBuilderCheckboxState;
 
-            return InputDecorator(
-              decoration: state.decoration(),
-              child: CheckboxListTile(
-                dense: true,
-                isThreeLine: false,
-                title: title,
-                subtitle: subtitle,
-                value: state.value,
-                onChanged: state.enabled
-                    ? (val) {
-                        state.requestFocus();
-                        state.didChange(val);
-                      }
-                    : null,
-                checkColor: checkColor,
-                activeColor: activeColor,
-                secondary: secondary,
-                controlAffinity: controlAffinity,
-                autofocus: autofocus,
-                tristate: tristate,
-                contentPadding: contentPadding,
-                selected: selected,
-              ),
-            );
-          },
-        );
+           return InputDecorator(
+             decoration: state.decoration,
+             isFocused: state.effectiveFocusNode.hasFocus,
+             child: CheckboxListTile(
+               dense: true,
+               isThreeLine: false,
+               focusNode: state.effectiveFocusNode,
+               title: title,
+               subtitle: subtitle,
+               value: tristate ? state.value : (state.value ?? false),
+               onChanged: state.enabled
+                   ? (value) {
+                       state.didChange(value);
+                     }
+                   : null,
+               checkColor: checkColor,
+               activeColor: activeColor,
+               secondary: secondary,
+               controlAffinity: controlAffinity,
+               autofocus: autofocus,
+               tristate: tristate,
+               contentPadding: contentPadding,
+               visualDensity: visualDensity,
+               selected: selected,
+               checkboxShape: shape,
+               side: side,
+             ),
+           );
+         },
+       );
 
   @override
-  _FormBuilderCheckboxState createState() => _FormBuilderCheckboxState();
+  FormBuilderFieldDecorationState<FormBuilderCheckbox, bool> createState() =>
+      _FormBuilderCheckboxState();
 }
 
 class _FormBuilderCheckboxState
-    extends FormBuilderFieldState<FormBuilderCheckbox, bool> {}
+    extends FormBuilderFieldDecorationState<FormBuilderCheckbox, bool> {
+  void handleFocusChange() {
+    setState(() {});
+  }
+
+  @override
+  void initState() {
+    super.initState();
+    effectiveFocusNode.addListener(handleFocusChange);
+  }
+
+  @override
+  void dispose() {
+    effectiveFocusNode.removeListener(handleFocusChange);
+    super.dispose();
+  }
+}

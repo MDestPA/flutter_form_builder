@@ -1,7 +1,6 @@
-import 'package:flutter/material.dart';
+import 'package:flutter/widgets.dart';
 import 'package:flutter_form_builder/flutter_form_builder.dart';
-
-typedef ValueTransformer<T> = dynamic Function(T value);
+import 'package:flutter_form_builder/src/extensions/autovalidatemode_extension.dart';
 
 /// A container for form fields.
 class FormBuilder extends StatefulWidget {
@@ -9,19 +8,39 @@ class FormBuilder extends StatefulWidget {
   ///
   /// In addition to this callback being invoked, all the form fields themselves
   /// will rebuild.
-  final VoidCallback onChanged;
+  final VoidCallback? onChanged;
 
-  /// Enables the form to veto attempts by the user to dismiss the [ModalRoute]
-  /// that contains the form.
+  /// {@macro flutter.widgets.navigator.onPopInvokedWithResult}
   ///
-  /// If the callback returns a Future that resolves to false, the form's route
-  /// will not be popped.
+  /// {@tool dartpad}
+  /// This sample demonstrates how to use this parameter to show a confirmation
+  /// dialog when a navigation pop would cause form data to be lost.
+  ///
+  /// ** See code in examples/api/lib/widgets/form/form.1.dart **
+  /// {@end-tool}
   ///
   /// See also:
   ///
-  ///  * [WillPopScope], another widget that provides a way to intercept the
-  ///    back button.
-  final WillPopCallback onWillPop;
+  ///  * [canPop], which also comes from [PopScope] and is often used in
+  ///    conjunction with this parameter.
+  ///  * [PopScope.onPopInvokedWithResult], which is what [Form] delegates to internally.
+  final PopInvokedWithResultCallback<Object?>? onPopInvokedWithResult;
+
+  /// {@macro flutter.widgets.PopScope.canPop}
+  ///
+  /// {@tool dartpad}
+  /// This sample demonstrates how to use this parameter to show a confirmation
+  /// dialog when a navigation pop would cause form data to be lost.
+  ///
+  /// ** See code in examples/api/lib/widgets/form/form.1.dart **
+  /// {@end-tool}
+  ///
+  /// See also:
+  ///
+  ///  * [onPopInvoked], which also comes from [PopScope] and is often used in
+  ///    conjunction with this parameter.
+  ///  * [PopScope.canPop], which is what [Form] delegates to internally.
+  final bool? canPop;
 
   /// The widget below this widget in the tree.
   ///
@@ -34,7 +53,7 @@ class FormBuilder extends StatefulWidget {
   /// text.
   ///
   /// {@macro flutter.widgets.form.autovalidateMode}
-  final AutovalidateMode autovalidateMode;
+  final AutovalidateMode? autovalidateMode;
 
   /// An optional Map of field initialValues. Keys correspond to the field's
   /// name and value to the initialValue of the field.
@@ -45,8 +64,11 @@ class FormBuilder extends StatefulWidget {
 
   /// Whether the form should ignore submitting values from fields where
   /// `enabled` is `false`.
+  ///
   /// This behavior is common in HTML forms where _readonly_ values are not
   /// submitted when the form is submitted.
+  ///
+  /// `true` = Disabled / `false` = Read only
   ///
   /// When `true`, the final form value will not contain disabled fields.
   /// Default is `false`.
@@ -60,60 +82,135 @@ class FormBuilder extends StatefulWidget {
   /// and their enabled state will be ignored.
   final bool enabled;
 
+  /// Whether to clear the internal value of a field when it is unregistered.
+  ///
+  /// Defaults to `false`.
+  ///
+  /// When set to `true`, the form builder will not keep the internal values
+  /// from disposed [FormBuilderField]s. This is useful for dynamic forms where
+  /// fields are registered and unregistered due to state change.
+  ///
+  /// This setting will have no effect when registering a field with the same
+  /// name as the unregistered one.
+  final bool clearValueOnUnregister;
+
   /// Creates a container for form fields.
   ///
   /// The [child] argument must not be null.
   const FormBuilder({
-    Key key,
-    @required this.child,
+    super.key,
+    required this.child,
     this.onChanged,
     this.autovalidateMode,
-    this.onWillPop,
+    this.onPopInvokedWithResult,
     this.initialValue = const <String, dynamic>{},
     this.skipDisabled = false,
     this.enabled = true,
-  }) : super(key: key);
+    this.clearValueOnUnregister = false,
+    this.canPop,
+  });
 
-  static FormBuilderState of(BuildContext context) =>
+  static FormBuilderState? of(BuildContext context) =>
       context.findAncestorStateOfType<FormBuilderState>();
 
   @override
   FormBuilderState createState() => FormBuilderState();
 }
 
-class FormBuilderState extends State<FormBuilder> {
-  final _formKey = GlobalKey<FormState>();
+/// A type alias for a map of form fields.
+typedef FormBuilderFields =
+    Map<String, FormBuilderFieldState<FormBuilderField<dynamic>, dynamic>>;
 
+class FormBuilderState extends State<FormBuilder> {
+  final GlobalKey<FormState> _formKey = GlobalKey<FormState>();
+  final FormBuilderFields _fields = {};
+  final Map<String, dynamic> _instantValue = {};
+  final Map<String, dynamic> _savedValue = {};
+  // Because dart type system will not accept ValueTransformer<dynamic>
+  final Map<String, Function> _transformers = {};
+  bool _focusOnInvalid = true;
+
+  /// Will be true if will focus on invalid field when validate
+  ///
+  /// Only used to internal logic
+  bool get focusOnInvalid => _focusOnInvalid;
+
+  /// Get if form is enabled
   bool get enabled => widget.enabled;
 
-  final _fields = <String, FormBuilderFieldState>{};
+  /// Verify if all fields on form are valid.
+  bool get isValid => fields.values.every((field) => field.isValid);
 
-  final _value = <String, dynamic>{};
+  /// Will be true if some field on form are dirty.
+  ///
+  /// Dirty: The value of field is changed by user or by logic code.
+  bool get isDirty => fields.values.any((field) => field.isDirty);
 
-  Map<String, dynamic> get value => Map<String, dynamic>.unmodifiable(_value);
+  /// Will be true if some field on form are touched.
+  ///
+  /// Touched: The field is focused by user or by logic code.
+  bool get isTouched => fields.values.any((field) => field.isTouched);
 
+  /// Get a map of errors
+  Map<String, String> get errors => {
+    for (var element in fields.entries.where(
+      (element) => element.value.hasError,
+    ))
+      element.key.toString(): element.value.errorText ?? '',
+  };
+
+  /// Get initialValue.
   Map<String, dynamic> get initialValue => widget.initialValue;
 
-  Map<String, FormBuilderFieldState> get fields => _fields;
+  /// Get all fields of form.
+  FormBuilderFields get fields => _fields;
 
-  /*
-    bool get hasError => _fields.values.map((e) => e.hasError).firstWhere((element) => element == false, orElse: () => true);
+  /// Get all fields values of form.
+  Map<String, dynamic> get instantValue => Map<String, dynamic>.unmodifiable(
+    _instantValue.map(
+      (key, value) => MapEntry(
+        key,
+        _transformers[key] == null ? value : _transformers[key]!(value),
+      ),
+    ),
+  );
 
-    bool get isValid => _fields.values.map((e) => e.isValid).firstWhere((element) => element == false, orElse: () => true);
-  */
+  /// Returns the saved value only
+  Map<String, dynamic> get value => Map<String, dynamic>.unmodifiable(
+    _savedValue.map(
+      (key, value) => MapEntry(
+        key,
+        _transformers[key] == null ? value : _transformers[key]!(value),
+      ),
+    ),
+  );
 
-  void setInternalFieldValue(String name, dynamic value) {
-    setState(() {
-      _value[name] = value;
-    });
+  dynamic transformValue<T>(String name, T? v) {
+    final t = _transformers[name];
+    return t != null ? t.call(v) : v;
   }
 
+  dynamic getTransformedValue<T>(String name, {bool fromSaved = false}) {
+    return transformValue<T>(name, getRawValue(name));
+  }
+
+  T? getRawValue<T>(String name, {bool fromSaved = false}) {
+    return (fromSaved ? _savedValue[name] : _instantValue[name]) ??
+        initialValue[name];
+  }
+
+  /// Get a field value by name
+  void setInternalFieldValue<T>(String name, T? value) {
+    _instantValue[name] = value;
+    widget.onChanged?.call();
+  }
+
+  /// Remove a field value by name
   void removeInternalFieldValue(String name) {
-    setState(() {
-      _value.remove(name);
-    });
+    _instantValue.remove(name);
   }
 
+  /// Register a field on form
   void registerField(String name, FormBuilderFieldState field) {
     // Each field must have a unique name.  Ideally we could simply:
     //   assert(!_fields.containsKey(name));
@@ -121,52 +218,132 @@ class FormBuilderState extends State<FormBuilder> {
     // field is being replaced, the new instance is registered before the old
     // one is unregistered.  To accommodate that use case, but also provide
     // assistance to accidental duplicate names, we check and emit a warning.
+    final oldField = _fields[name];
     assert(() {
-      if (_fields.containsKey(name)) {
-        print('Warning! Replacing duplicate Field for $name'
-            ' -- this is OK to ignore as long as the field was intentionally replaced');
+      if (oldField != null) {
+        debugPrint(
+          'Warning! Replacing duplicate Field for $name'
+          ' -- this is OK to ignore as long as the field was intentionally replaced',
+        );
       }
       return true;
     }());
+
     _fields[name] = field;
+    field.registerTransformer(_transformers);
+
+    if (widget.clearValueOnUnregister || (_instantValue[name] == null)) {
+      _instantValue[name] = field.initialValue ?? initialValue[name];
+    }
+
+    field.setValue(_instantValue[name], populateForm: false);
   }
 
+  /// Unregister a field on form
   void unregisterField(String name, FormBuilderFieldState field) {
-    assert(_fields.containsKey(name));
+    assert(
+      _fields.containsKey(name),
+      'Failed to unregister a field. Make sure that all field names in a form are unique.',
+    );
+
     // Only remove the field when it is the one registered.  It's possible that
     // the field is replaced (registerField is called twice for a given name)
     // before unregisterField is called for the name, so just emit a warning
     // since it may be intentional.
     if (field == _fields[name]) {
       _fields.remove(name);
+      _transformers.remove(name);
+      if (widget.clearValueOnUnregister) {
+        _instantValue.remove(name);
+        _savedValue.remove(name);
+      }
     } else {
       assert(() {
         // This is OK to ignore when you are intentionally replacing a field
         // with another field using the same name.
-        print('Warning! Ignoring Field unregistration for $name'
-            ' -- this is OK to ignore as long as the field was intentionally replaced');
+        debugPrint(
+          'Warning! Ignoring Field unregistration for $name'
+          ' -- this is OK to ignore as long as the field was intentionally replaced',
+        );
         return true;
       }());
     }
   }
 
+  /// Save form values
   void save() {
-    _formKey.currentState.save();
+    _formKey.currentState!.save();
+    // Copy values from instant to saved
+    _savedValue.clear();
+    _savedValue.addAll(_instantValue);
   }
 
-  bool validate() {
-    return _formKey.currentState.validate();
+  /// Validate all fields of form
+  ///
+  /// Focus to first invalid field when has field invalid, if [focusOnInvalid] is `true`.
+  /// By default `true`
+  ///
+  /// Auto scroll to first invalid field focused if [autoScrollWhenFocusOnInvalid] is `true`.
+  /// By default `false`.
+  ///
+  /// Note: If a invalid field is from type **TextField** and will focused,
+  /// the form will auto scroll to show this invalid field.
+  /// In this case, the automatic scroll happens because is a behavior inside the framework,
+  /// not because [autoScrollWhenFocusOnInvalid] is `true`.
+  bool validate({
+    bool focusOnInvalid = true,
+    bool autoScrollWhenFocusOnInvalid = false,
+  }) {
+    _focusOnInvalid = focusOnInvalid;
+    final hasError = !_formKey.currentState!.validate();
+    if (hasError) {
+      final wrongFields = fields.values
+          .where((element) => element.hasError)
+          .toList();
+      if (wrongFields.isNotEmpty) {
+        if (focusOnInvalid) {
+          wrongFields.first.focus();
+        }
+        if (autoScrollWhenFocusOnInvalid) {
+          wrongFields.first.ensureScrollableVisibility();
+        }
+      }
+    }
+    return !hasError;
   }
 
-  bool saveAndValidate() {
+  /// Save form values and validate all fields of form
+  ///
+  /// Focus to first invalid field when has field invalid, if [focusOnInvalid] is `true`.
+  /// By default `true`
+  ///
+  /// Auto scroll to first invalid field focused if [autoScrollWhenFocusOnInvalid] is `true`.
+  /// By default `false`.
+  ///
+  /// Note: If a invalid field is from type **TextField** and will focused,
+  /// the form will auto scroll to show this invalid field.
+  /// In this case, the automatic scroll happens because is a behavior inside the framework,
+  /// not because [autoScrollWhenFocusOnInvalid] is `true`.
+  bool saveAndValidate({
+    bool focusOnInvalid = true,
+    bool autoScrollWhenFocusOnInvalid = false,
+  }) {
     save();
-    return validate();
+    return validate(
+      focusOnInvalid: focusOnInvalid,
+      autoScrollWhenFocusOnInvalid: autoScrollWhenFocusOnInvalid,
+    );
   }
 
+  /// Reset form to `initialValue` set on FormBuilder or on each field.
   void reset() {
-    _formKey.currentState.reset();
+    _formKey.currentState?.reset();
   }
 
+  /// Update fields values of form.
+  /// Useful when need update all values at once, after init.
+  ///
+  /// To load all values at once on init, use `initialValue` property
   void patchValue(Map<String, dynamic> val) {
     val.forEach((key, dynamic value) {
       _fields[key]?.didChange(value);
@@ -174,16 +351,42 @@ class FormBuilderState extends State<FormBuilder> {
   }
 
   @override
+  void initState() {
+    // Verify if need auto validate form
+    if (enabled && (widget.autovalidateMode?.isAlways ?? false)) {
+      WidgetsBinding.instance.addPostFrameCallback((_) {
+        // No focus on invalid, like default behavior on Flutter base Form
+        validate(focusOnInvalid: false);
+      });
+    }
+    super.initState();
+  }
+
+  @override
   Widget build(BuildContext context) {
     return Form(
       key: _formKey,
-      child: FocusTraversalGroup(
-        policy: WidgetOrderTraversalPolicy(),
-        child: widget.child,
-      ),
       autovalidateMode: widget.autovalidateMode,
-      onWillPop: widget.onWillPop,
-      onChanged: widget.onChanged,
+      onPopInvokedWithResult: widget.onPopInvokedWithResult,
+      canPop: widget.canPop,
+      // `onChanged` is called during setInternalFieldValue else will be called early
+      child: _FormBuilderScope(
+        formState: this,
+        child: FocusTraversalGroup(child: widget.child),
+      ),
     );
   }
+}
+
+class _FormBuilderScope extends InheritedWidget {
+  const _FormBuilderScope({required super.child, required this._formState});
+
+  final FormBuilderState _formState;
+
+  /// The [Form] associated with this widget.
+  FormBuilder get form => _formState.widget;
+
+  @override
+  bool updateShouldNotify(_FormBuilderScope oldWidget) =>
+      oldWidget._formState != _formState;
 }

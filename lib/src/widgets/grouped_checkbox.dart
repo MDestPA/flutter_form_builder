@@ -1,17 +1,18 @@
-import 'package:flutter/material.dart';
+import 'package:material_ui/material_ui.dart';
+
 import 'package:flutter_form_builder/flutter_form_builder.dart';
 
-class GroupedCheckbox<T> extends StatefulWidget {
+class GroupedCheckbox<T> extends StatelessWidget {
   /// A list of string that describes each checkbox. Each item must be distinct.
   final List<FormBuilderFieldOption<T>> options;
 
   /// A list of string which specifies automatically checked checkboxes.
   /// Every element must match an item from itemList.
-  final List<T> value;
+  final List<T>? value;
 
   /// Specifies which checkbox option values should be disabled.
   /// If this is null, then no checkbox options will be disabled.
-  final List<T> disabled;
+  final List<T>? disabled;
 
   /// Specifies the orientation of the elements in itemList.
   final OptionsOrientation orientation;
@@ -21,25 +22,29 @@ class GroupedCheckbox<T> extends StatefulWidget {
 
   /// The color to use when this checkbox is checked.
   ///
-  /// Defaults to [ThemeData.toggleableActiveColor].
-  final Color activeColor;
+  /// Defaults to [ColorScheme.secondary].
+  ///
+  /// If [fillColor] returns a non-null color in the [WidgetState.selected]
+  /// state, it will be used instead of this color.
+  final Color? activeColor;
+  final VisualDensity? visualDensity;
 
   /// The color to use for the check icon when this checkbox is checked.
   ///
   /// Defaults to Color(0xFFFFFFFF)
-  final Color checkColor;
+  final Color? checkColor;
 
   /// If true the checkbox's value can be true, false, or null.
   final bool tristate;
 
   /// Configures the minimum size of the tap target.
-  final MaterialTapTargetSize materialTapTargetSize;
+  final MaterialTapTargetSize? materialTapTargetSize;
 
   /// The color for the checkbox's Material when it has the input focus.
-  final Color focusColor;
+  final Color? focusColor;
 
   /// The color for the checkbox's Material when a pointer is hovering over it.
-  final Color hoverColor;
+  final Color? hoverColor;
 
   //.......................WRAP ORIENTATION.....................................
 
@@ -149,7 +154,7 @@ class GroupedCheckbox<T> extends StatefulWidget {
   /// [wrapCrossAxisAlignment] is either [WrapCrossAlignment.start] or
   /// [WrapCrossAlignment.end], or there's more than one child, then the
   /// [wrapTextDirection] (or the ambient [Directionality]) must not be null.
-  final TextDirection wrapTextDirection;
+  final TextDirection? wrapTextDirection;
 
   /// Determines the order to lay children out vertically and how to interpret
   /// `start` and `end` in the vertical direction.
@@ -175,15 +180,24 @@ class GroupedCheckbox<T> extends StatefulWidget {
   /// [wrapVerticalDirection] must not be null.
   final VerticalDirection wrapVerticalDirection;
 
-  final Widget separator;
+  final Widget? separator;
 
   final ControlAffinity controlAffinity;
 
-  GroupedCheckbox({
-    Key key,
-    @required this.options,
-    @required this.orientation,
-    @required this.onChanged,
+  /// Applied to a [Container] wrapping each item if provided
+  ///
+  /// If the [orientation] is set to [OptionsOrientation.vertical] then
+  /// [wrapSpacing] is used as inter-item bottom margin
+  ///
+  /// If the [orientation] is set to [OptionsOrientation.horizontal] then
+  /// [wrapSpacing] is used as inter-item right margin
+  final BoxDecoration? itemDecoration;
+
+  const GroupedCheckbox({
+    super.key,
+    required this.options,
+    required this.orientation,
+    required this.onChanged,
     this.value,
     this.disabled,
     this.activeColor,
@@ -202,112 +216,130 @@ class GroupedCheckbox<T> extends StatefulWidget {
     this.wrapVerticalDirection = VerticalDirection.down,
     this.separator,
     this.controlAffinity = ControlAffinity.leading,
-  }) : super(key: key);
-
-  @override
-  _GroupedCheckboxState<T> createState() => _GroupedCheckboxState<T>();
-}
-
-class _GroupedCheckboxState<T> extends State<GroupedCheckbox<T>> {
-  final selectedListItems = <T>[];
-
-  @override
-  void initState() {
-    super.initState();
-
-    if (widget.value != null) {
-      selectedListItems.addAll(widget.value);
-    }
-  }
+    this.visualDensity,
+    this.itemDecoration,
+  });
 
   @override
   Widget build(BuildContext context) {
     final widgetList = <Widget>[];
-    for (var i = 0; i < widget.options.length; i++) {
-      widgetList.add(item(i));
+    for (var i = 0; i < options.length; i++) {
+      widgetList.add(buildItem(i));
     }
-    Widget finalWidget;
-    if (widget.orientation == OptionsOrientation.vertical) {
-      finalWidget = SingleChildScrollView(
+
+    return switch (orientation) {
+      OptionsOrientation.auto => OverflowBar(
+        alignment: MainAxisAlignment.spaceEvenly,
+        children: widgetList,
+      ),
+      OptionsOrientation.vertical => SingleChildScrollView(
         scrollDirection: Axis.vertical,
         child: Column(
           crossAxisAlignment: CrossAxisAlignment.start,
           children: widgetList,
         ),
-      );
-    } else if (widget.orientation == OptionsOrientation.horizontal) {
-      finalWidget = SingleChildScrollView(
+      ),
+      OptionsOrientation.horizontal => SingleChildScrollView(
         scrollDirection: Axis.horizontal,
         child: Row(
           children: widgetList.map((item) {
             return Column(children: <Widget>[item]);
           }).toList(),
         ),
-      );
-    } else {
-      finalWidget = SingleChildScrollView(
+      ),
+      OptionsOrientation.wrap => SingleChildScrollView(
         child: Wrap(
-          children: widgetList,
-          spacing: widget.wrapSpacing,
-          runSpacing: widget.wrapRunSpacing,
-          textDirection: widget.wrapTextDirection,
-          crossAxisAlignment: widget.wrapCrossAxisAlignment,
-          verticalDirection: widget.wrapVerticalDirection,
-          alignment: widget.wrapAlignment,
+          spacing: wrapSpacing,
+          runSpacing: wrapRunSpacing,
+          textDirection: wrapTextDirection,
+          crossAxisAlignment: wrapCrossAxisAlignment,
+          verticalDirection: wrapVerticalDirection,
+          alignment: wrapAlignment,
           direction: Axis.horizontal,
-          runAlignment: widget.wrapRunAlignment,
+          runAlignment: wrapRunAlignment,
+          children: widgetList,
         ),
-      );
-    }
-    return finalWidget;
+      ),
+    };
   }
 
-  Widget item(int index) {
-    final option = widget.options[index];
+  /// the composite of all the components for the option at index
+  Widget buildItem(int index) {
+    final option = options[index];
     final optionValue = option.value;
-    final isOptionDisabled = true == widget.disabled?.contains(optionValue);
+    final isOptionDisabled = true == disabled?.contains(optionValue);
     final control = Checkbox(
-      activeColor: widget.activeColor,
-      checkColor: widget.checkColor,
-      focusColor: widget.focusColor,
-      hoverColor: widget.hoverColor,
-      materialTapTargetSize: widget.materialTapTargetSize,
-      value: selectedListItems.contains(optionValue),
-      tristate: widget.tristate,
+      visualDensity: visualDensity,
+      activeColor: activeColor,
+      checkColor: checkColor,
+      focusColor: focusColor,
+      hoverColor: hoverColor,
+      materialTapTargetSize: materialTapTargetSize,
+      value: tristate
+          ? value?.contains(optionValue)
+          : true == value?.contains(optionValue),
+      tristate: tristate,
       onChanged: isOptionDisabled
           ? null
           : (selected) {
-              selected
+              List<T> selectedListItems = value == null ? [] : List.of(value!);
+              selected!
                   ? selectedListItems.add(optionValue)
                   : selectedListItems.remove(optionValue);
-              setState(() {
-                widget.onChanged(selectedListItems);
-              });
+              onChanged(selectedListItems);
             },
     );
     final label = GestureDetector(
-      child: option,
       onTap: isOptionDisabled
           ? null
           : () {
+              List<T> selectedListItems = value == null ? [] : List.of(value!);
               selectedListItems.contains(optionValue)
                   ? selectedListItems.remove(optionValue)
                   : selectedListItems.add(optionValue);
-              setState(() {
-                widget.onChanged(selectedListItems);
-              });
+              onChanged(selectedListItems);
             },
+      child: option,
     );
 
-    return Row(
+    Widget compositeItem = Column(
       mainAxisSize: MainAxisSize.min,
-      children: <Widget>[
-        if (widget.controlAffinity == ControlAffinity.leading) control,
-        Flexible(flex: 1, child: label),
-        if (widget.controlAffinity == ControlAffinity.trailing) control,
-        if (widget.separator != null && index != widget.options.length - 1)
-          widget.separator,
+      crossAxisAlignment: CrossAxisAlignment.start,
+      children: [
+        Row(
+          mainAxisSize: MainAxisSize.min,
+          children: <Widget>[
+            if (controlAffinity == ControlAffinity.leading) control,
+            Flexible(flex: 1, child: label),
+            if (controlAffinity == ControlAffinity.trailing) control,
+            if (orientation != OptionsOrientation.vertical &&
+                separator != null &&
+                index != options.length - 1)
+              separator!,
+          ],
+        ),
+        if (orientation == OptionsOrientation.vertical &&
+            separator != null &&
+            index != options.length - 1)
+          separator!,
       ],
     );
+
+    if (itemDecoration != null) {
+      compositeItem = Container(
+        decoration: itemDecoration,
+        margin: EdgeInsets.only(
+          bottom: orientation == OptionsOrientation.vertical
+              ? wrapSpacing
+              : 0.0,
+          right: orientation == OptionsOrientation.horizontal
+              ? wrapSpacing
+              : 0.0,
+        ),
+        child: compositeItem,
+      );
+    }
+
+    return compositeItem;
   }
 }

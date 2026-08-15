@@ -1,4 +1,5 @@
-import 'package:flutter/material.dart';
+import 'package:material_ui/material_ui.dart';
+
 import 'package:flutter_form_builder/flutter_form_builder.dart';
 
 class GroupedRadio<T> extends StatefulWidget {
@@ -7,31 +8,31 @@ class GroupedRadio<T> extends StatefulWidget {
 
   /// A list of string which specifies automatically checked checkboxes.
   /// Every element must match an item from itemList.
-  final T value;
+  final T? value;
 
   /// Specifies which radio option values should be disabled.
   /// If this is null, then no radio options will be disabled.
-  final List<T> disabled;
+  final List<T>? disabled;
 
   /// Specifies the orientation of the elements in itemList.
   final OptionsOrientation orientation;
 
   /// Called when the value of the checkbox group changes.
-  final ValueChanged<T> onChanged;
+  final ValueChanged<T?> onChanged;
 
   /// The color to use when this checkbox is checked.
   ///
-  /// Defaults to [ThemeData.toggleableActiveColor].
-  final Color activeColor;
+  /// Defaults to [ColorScheme.secondary].
+  final Color? activeColor;
 
   /// Configures the minimum size of the tap target.
-  final MaterialTapTargetSize materialTapTargetSize;
+  final MaterialTapTargetSize? materialTapTargetSize;
 
   /// The color for the checkbox's Material when it has the input focus.
-  final Color focusColor;
+  final Color? focusColor;
 
   /// The color for the checkbox's Material when a pointer is hovering over it.
-  final Color hoverColor;
+  final Color? hoverColor;
 
   //.......................WRAP ORIENTATION.....................................
 
@@ -141,7 +142,7 @@ class GroupedRadio<T> extends StatefulWidget {
   /// [wrapCrossAxisAlignment] is either [WrapCrossAlignment.start] or
   /// [WrapCrossAlignment.end], or there's more than one child, then the
   /// [wrapTextDirection] (or the ambient [Directionality]) must not be null.
-  final TextDirection wrapTextDirection;
+  final TextDirection? wrapTextDirection;
 
   /// Determines the order to lay children out vertically and how to interpret
   /// `start` and `end` in the vertical direction.
@@ -167,14 +168,24 @@ class GroupedRadio<T> extends StatefulWidget {
   /// [wrapVerticalDirection] must not be null.
   final VerticalDirection wrapVerticalDirection;
 
-  final Widget separator;
+  final Widget? separator;
 
   final ControlAffinity controlAffinity;
 
-  GroupedRadio({
-    @required this.options,
-    @required this.orientation,
-    @required this.onChanged,
+  /// Applied to a [Container] wrapping each item if provided
+  ///
+  /// If the [orientation] is set to [OptionsOrientation.vertical] then
+  /// [wrapSpacing] is used as inter-item bottom margin
+  ///
+  /// If the [orientation] is set to [OptionsOrientation.horizontal] then
+  /// [wrapSpacing] is used as inter-item right margin
+  final BoxDecoration? itemDecoration;
+
+  const GroupedRadio({
+    super.key,
+    required this.options,
+    required this.orientation,
+    required this.onChanged,
     this.value,
     this.disabled,
     this.activeColor,
@@ -191,91 +202,120 @@ class GroupedRadio<T> extends StatefulWidget {
     this.wrapVerticalDirection = VerticalDirection.down,
     this.separator,
     this.controlAffinity = ControlAffinity.leading,
+    this.itemDecoration,
   });
 
   @override
-  _GroupedRadioState<T> createState() => _GroupedRadioState<T>();
+  State<GroupedRadio<T?>> createState() => _GroupedRadioState<T>();
 }
 
-class _GroupedRadioState<T> extends State<GroupedRadio<T>> {
+class _GroupedRadioState<T> extends State<GroupedRadio<T?>> {
   @override
   Widget build(BuildContext context) {
     final widgetList = <Widget>[];
-    for (var i = 0; i < widget.options.length; i++) {
-      widgetList.add(item(i));
+    for (int i = 0; i < widget.options.length; i++) {
+      widgetList.add(buildItem(i));
     }
-    Widget finalWidget;
-    if (widget.orientation == OptionsOrientation.vertical) {
-      finalWidget = SingleChildScrollView(
-        scrollDirection: Axis.vertical,
-        child: Column(
-          crossAxisAlignment: CrossAxisAlignment.start,
+
+    return RadioGroup<T?>(
+      onChanged: (value) {
+        widget.onChanged(value);
+      },
+      groupValue: widget.value,
+      child: switch (widget.orientation) {
+        OptionsOrientation.auto => OverflowBar(
+          alignment: MainAxisAlignment.spaceEvenly,
           children: widgetList,
         ),
-      );
-    } else if (widget.orientation == OptionsOrientation.horizontal) {
-      finalWidget = SingleChildScrollView(
-        scrollDirection: Axis.horizontal,
-        child: Row(
-          children: widgetList.map((item) {
-            return Column(children: <Widget>[item]);
-          }).toList(),
+        OptionsOrientation.vertical => SingleChildScrollView(
+          scrollDirection: Axis.vertical,
+          child: Column(
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: widgetList,
+          ),
         ),
-      );
-    } else {
-      finalWidget = SingleChildScrollView(
-        child: Wrap(
-          children: widgetList,
-          spacing: widget.wrapSpacing,
-          runSpacing: widget.wrapRunSpacing,
-          textDirection: widget.wrapTextDirection,
-          crossAxisAlignment: widget.wrapCrossAxisAlignment,
-          verticalDirection: widget.wrapVerticalDirection,
-          alignment: widget.wrapAlignment,
-          direction: Axis.horizontal,
-          runAlignment: widget.wrapRunAlignment,
+        OptionsOrientation.horizontal => SingleChildScrollView(
+          scrollDirection: Axis.horizontal,
+          child: Row(children: widgetList),
         ),
-      );
-    }
-    return finalWidget;
+        OptionsOrientation.wrap => SingleChildScrollView(
+          child: Wrap(
+            spacing: widget.wrapSpacing,
+            runSpacing: widget.wrapRunSpacing,
+            textDirection: widget.wrapTextDirection,
+            crossAxisAlignment: widget.wrapCrossAxisAlignment,
+            verticalDirection: widget.wrapVerticalDirection,
+            alignment: widget.wrapAlignment,
+            direction: Axis.horizontal,
+            runAlignment: widget.wrapRunAlignment,
+            children: widgetList,
+          ),
+        ),
+      },
+    );
   }
 
-  Widget item(int index) {
+  /// the composite of all the components for the option at index
+  Widget buildItem(int index) {
     final option = widget.options[index];
     final optionValue = option.value;
     final isOptionDisabled = true == widget.disabled?.contains(optionValue);
-    final control = Radio<T>(
-      groupValue: widget.value,
+    final control = Radio<T?>(
       activeColor: widget.activeColor,
       focusColor: widget.focusColor,
       hoverColor: widget.hoverColor,
       materialTapTargetSize: widget.materialTapTargetSize,
       value: optionValue,
-      onChanged: isOptionDisabled
-          ? null
-          : (T selected) {
-              widget.onChanged(selected);
-            },
+      enabled: !isOptionDisabled,
     );
 
     final label = GestureDetector(
-      child: widget.options[index],
       onTap: isOptionDisabled
           ? null
           : () {
               widget.onChanged(optionValue);
             },
+      child: option,
     );
 
-    return Row(
+    Widget compositeItem = Column(
       mainAxisSize: MainAxisSize.min,
-      children: <Widget>[
-        if (widget.controlAffinity == ControlAffinity.leading) control,
-        Flexible(child: label),
-        if (widget.controlAffinity == ControlAffinity.trailing) control,
-        if (widget.separator != null && index != widget.options.length - 1)
-          widget.separator,
+      crossAxisAlignment: CrossAxisAlignment.start,
+      children: [
+        Row(
+          mainAxisSize: MainAxisSize.min,
+          children: [
+            if (widget.controlAffinity == ControlAffinity.leading) control,
+            Flexible(child: label),
+            if (widget.controlAffinity == ControlAffinity.trailing) control,
+            if (widget.orientation != OptionsOrientation.vertical &&
+                widget.separator != null &&
+                index != widget.options.length - 1)
+              widget.separator!,
+          ],
+        ),
+        if (widget.orientation == OptionsOrientation.vertical &&
+            widget.separator != null &&
+            index != widget.options.length - 1)
+          widget.separator!,
       ],
     );
+
+    if (widget.itemDecoration != null) {
+      compositeItem = Container(
+        decoration: widget.itemDecoration,
+        margin: EdgeInsets.only(
+          bottom: widget.orientation == OptionsOrientation.vertical
+              ? widget.wrapSpacing
+              : 0.0,
+          right: widget.orientation == OptionsOrientation.horizontal
+              ? widget.wrapSpacing
+              : 0.0,
+        ),
+        child: compositeItem,
+      );
+    }
+
+    return compositeItem;
   }
 }
